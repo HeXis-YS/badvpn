@@ -86,12 +86,12 @@ static void dgram_handler_received (SocksUdpGwClient_connection *o, uint8_t *dat
     if (!o->is_dns) {
 
         // check header
-        if (data_len < sizeof(struct socks_udp_header)) {
+        if (data_len < sizeof(struct udpgw_socks_udp_header)) {
             BLog(BLOG_ERROR, "missing header");
             return;
         }
 
-        struct socks_udp_header header;
+        struct udpgw_socks_udp_header header;
         memcpy(&header, data, sizeof(header));
         data += sizeof(header);
         data_len -= sizeof(header);
@@ -203,7 +203,7 @@ static int connection_send (SocksUdpGwClient_connection *o, const uint8_t *data,
 
         // write header
         BAddr remote_addr = o->conaddr.remote_addr;
-        struct socks_udp_header header;
+        struct udpgw_socks_udp_header header;
         header.rsv = 0;
         header.frag = 0;
         if (remote_addr.type == BADDR_TYPE_IPV4) {

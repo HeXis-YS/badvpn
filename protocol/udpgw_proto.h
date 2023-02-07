@@ -41,7 +41,7 @@
 
 #ifdef __ANDROID__
 B_START_PACKED
-struct socks_udp_header {
+struct udpgw_socks_udp_header {
     uint16_t rsv;
     uint8_t frag;
     uint8_t atyp;
@@ -74,7 +74,7 @@ static int udpgw_compute_mtu (int dgram_mtu)
 {
     bsize_t bs = bsize_add(
 #ifdef __ANDROID__
-        bsize_fromsize(sizeof(struct socks_udp_header)),
+        bsize_fromsize(sizeof(struct udpgw_socks_udp_header)),
 #else
         bsize_fromsize(sizeof(struct udpgw_header)),
 #endif
