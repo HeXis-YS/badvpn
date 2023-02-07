@@ -297,9 +297,9 @@ LinkedList1 tcp_clients;
 // number of clients
 int num_clients;
 
-#ifdef __ANDROID__
 // Address of dnsgw
 BAddr dnsgw;
+#ifdef __ANDROID__
 void terminate (void);
 #else
 static void terminate (void);
@@ -411,7 +411,7 @@ int wait_for_fd()
     }
     fcntl(sock, F_SETFL, flags | O_NONBLOCK);
 
-    char *path = "/data/data/com.github.shadowsocks/sock_path";
+    char *path = "./sock_path";
     if (options.sock_path != NULL) {
         path = options.sock_path;
     }
@@ -483,12 +483,6 @@ int main (int argc, char **argv)
         fprintf(stderr, "Failed to parse arguments\n");
         print_help(argv[0]);
         goto fail0;
-    }
-
-    if (options.fake_proc) {
-        // Fake process name to cheat on Lollipop
-        strcpy(argv[0], "com.github.shadowsocks");
-        prctl(PR_SET_NAME, "com.github.shadowsocks");
     }
 
     // handle --help and --version
@@ -1419,7 +1413,7 @@ int process_device_udp_packet (uint8_t *data, int data_len)
 
     BAddr local_addr;
     BAddr remote_addr;
-    int is_dns;
+    int is_dns = 0;
 
     uint8_t ip_version = 0;
     if (data_len > 0) {
@@ -1476,6 +1470,7 @@ int process_device_udp_packet (uint8_t *data, int data_len)
             BAddr_InitIPv4(&local_addr, ipv4_header.source_address, udp_header.source_port);
             BAddr_InitIPv4(&remote_addr, ipv4_header.destination_address, udp_header.dest_port);
 
+#ifdef __ANDROID__
             // if transparent DNS is enabled, any packet arriving at out netif
             // address to port 53 is considered a DNS packet
             is_dns = (options.dnsgw && udp_header.dest_port == hton16(53));
@@ -1492,6 +1487,7 @@ int process_device_udp_packet (uint8_t *data, int data_len)
                     is_dns = (header->qr == 0 && header->rcode == 0 && header->ans_count == 0 && header->auth_count == 0);
                 }
             }
+#endif
         } break;
 
         case 6: {
