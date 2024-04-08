@@ -17,21 +17,6 @@ LOCAL_PATH := $(call my-dir)
 ROOT_PATH := $(LOCAL_PATH)
 
 ########################################################
-## libancillary
-########################################################
-
-include $(CLEAR_VARS)
-
-ANCILLARY_SOURCE := fd_recv.c fd_send.c
-
-LOCAL_MODULE := libancillary
-#LOCAL_CFLAGS += -I$(LOCAL_PATH)/libancillary
-LOCAL_C_INCLUDES := $(LOCAL_PATH)/libancillary
-LOCAL_SRC_FILES := $(addprefix libancillary/, $(ANCILLARY_SOURCE))
-
-include $(BUILD_STATIC_LIBRARY)
-
-########################################################
 ## tun2socks
 ########################################################
 
@@ -44,82 +29,80 @@ LOCAL_CFLAGS += -DBADVPN_LITTLE_ENDIAN
 LOCAL_CFLAGS += -DNDEBUG -DANDROID
 LOCAL_CFLAGS += -I
 
-LOCAL_STATIC_LIBRARIES := libancillary
-
 LOCAL_C_INCLUDES := \
-	$(LOCAL_PATH)/badvpn/libancillary \
-        $(LOCAL_PATH)/badvpn/lwip/src/include/ipv4 \
-        $(LOCAL_PATH)/badvpn/lwip/src/include/ipv6 \
-        $(LOCAL_PATH)/badvpn/lwip/src/include \
-        $(LOCAL_PATH)/badvpn/lwip/custom \
-        $(LOCAL_PATH)/badvpn \
+	$(LOCAL_PATH)/badvpn \
+	$(LOCAL_PATH)/badvpn/lwip/custom \
+	$(LOCAL_PATH)/badvpn/lwip/src/include \
+	$(LOCAL_PATH)/badvpn/lwip/src/include/ipv4 \
+	$(LOCAL_PATH)/badvpn/lwip/src/include/ipv6 \
 	$(LOCAL_PATH)/libancillary
 
-TUN2SOCKS_SOURCES := \
-        base/BLog_syslog.c \
-        system/BReactor_badvpn.c \
-        system/BSignal.c \
-        system/BConnection_unix.c \
-        system/BConnection_common.c \
-        system/BTime.c \
-        system/BUnixSignal.c \
-        system/BNetwork.c \
-        system/BDatagram_common.c \
-        system/BDatagram_unix.c \
-        flow/StreamRecvInterface.c \
-        flow/PacketRecvInterface.c \
-        flow/PacketPassInterface.c \
-        flow/StreamPassInterface.c \
-        flow/SinglePacketBuffer.c \
-        flow/BufferWriter.c \
-        flow/PacketBuffer.c \
-        flow/PacketStreamSender.c \
-        flow/PacketPassConnector.c \
-        flow/PacketProtoFlow.c \
-        flow/PacketPassFairQueue.c \
-        flow/PacketProtoEncoder.c \
-        flow/PacketProtoDecoder.c \
-        socksclient/BSocksClient.c \
-        tuntap/BTap.c \
-        lwip/src/core/udp.c \
-        lwip/src/core/memp.c \
-        lwip/src/core/init.c \
-        lwip/src/core/pbuf.c \
-        lwip/src/core/tcp.c \
-        lwip/src/core/tcp_out.c \
-        lwip/src/core/sys.c \
-        lwip/src/core/netif.c \
-        lwip/src/core/def.c \
-        lwip/src/core/mem.c \
-        lwip/src/core/tcp_in.c \
-        lwip/src/core/stats.c \
-        lwip/src/core/ip.c \
-        lwip/src/core/timeouts.c \
-        lwip/src/core/inet_chksum.c \
-        lwip/src/core/ipv4/icmp.c \
-        lwip/src/core/ipv4/ip4.c \
-        lwip/src/core/ipv4/ip4_addr.c \
-        lwip/src/core/ipv4/ip4_frag.c \
-        lwip/src/core/ipv6/ip6.c \
-        lwip/src/core/ipv6/nd6.c \
-        lwip/src/core/ipv6/icmp6.c \
-        lwip/src/core/ipv6/ip6_addr.c \
-        lwip/src/core/ipv6/ip6_frag.c \
-        lwip/custom/sys.c \
-        tun2socks/tun2socks.c \
-        base/DebugObject.c \
-        base/BLog.c \
-        base/BPending.c \
-        flowextra/PacketPassInactivityMonitor.c \
-        tun2socks/SocksUdpGwClient.c \
-        udpgw_client/UdpGwClient.c \
-        socks_udp_client/SocksUdpClient.c
+
+LOCAL_SRC_FILES := \
+	badvpn/base/BLog.c \
+	badvpn/base/BLog_syslog.c \
+	badvpn/base/BPending.c \
+	badvpn/base/DebugObject.c \
+	badvpn/flow/BufferWriter.c \
+	badvpn/flow/PacketBuffer.c \
+	badvpn/flow/PacketPassConnector.c \
+	badvpn/flow/PacketPassFairQueue.c \
+	badvpn/flow/PacketPassInterface.c \
+	badvpn/flow/PacketProtoDecoder.c \
+	badvpn/flow/PacketProtoEncoder.c \
+	badvpn/flow/PacketProtoFlow.c \
+	badvpn/flow/PacketRecvInterface.c \
+	badvpn/flow/PacketStreamSender.c \
+	badvpn/flow/SinglePacketBuffer.c \
+	badvpn/flow/StreamPassInterface.c \
+	badvpn/flow/StreamRecvInterface.c \
+	badvpn/flowextra/PacketPassInactivityMonitor.c \
+	badvpn/lwip/custom/sys.c \
+	badvpn/lwip/src/core/def.c \
+	badvpn/lwip/src/core/inet_chksum.c \
+	badvpn/lwip/src/core/init.c \
+	badvpn/lwip/src/core/ip.c \
+	badvpn/lwip/src/core/ipv4/icmp.c \
+	badvpn/lwip/src/core/ipv4/ip4.c \
+	badvpn/lwip/src/core/ipv4/ip4_addr.c \
+	badvpn/lwip/src/core/ipv4/ip4_frag.c \
+	badvpn/lwip/src/core/ipv6/icmp6.c \
+	badvpn/lwip/src/core/ipv6/ip6.c \
+	badvpn/lwip/src/core/ipv6/ip6_addr.c \
+	badvpn/lwip/src/core/ipv6/ip6_frag.c \
+	badvpn/lwip/src/core/ipv6/nd6.c \
+	badvpn/lwip/src/core/mem.c \
+	badvpn/lwip/src/core/memp.c \
+	badvpn/lwip/src/core/netif.c \
+	badvpn/lwip/src/core/pbuf.c \
+	badvpn/lwip/src/core/stats.c \
+	badvpn/lwip/src/core/sys.c \
+	badvpn/lwip/src/core/tcp.c \
+	badvpn/lwip/src/core/tcp_in.c \
+	badvpn/lwip/src/core/tcp_out.c \
+	badvpn/lwip/src/core/timeouts.c \
+	badvpn/lwip/src/core/udp.c \
+	badvpn/socks_udp_client/SocksUdpClient.c \
+	badvpn/socksclient/BSocksClient.c \
+	badvpn/system/BConnection_common.c \
+	badvpn/system/BConnection_unix.c \
+	badvpn/system/BDatagram_common.c \
+	badvpn/system/BDatagram_unix.c \
+	badvpn/system/BNetwork.c \
+	badvpn/system/BReactor_badvpn.c \
+	badvpn/system/BSignal.c \
+	badvpn/system/BTime.c \
+	badvpn/system/BUnixSignal.c \
+	badvpn/tun2socks/SocksUdpGwClient.c \
+	badvpn/tun2socks/tun2socks.c \
+	badvpn/tuntap/BTap.c \
+	badvpn/udpgw_client/UdpGwClient.c \
+	libancillary/fd_recv.c \
+	libancillary/fd_send.c
 
 LOCAL_MODULE := tun2socks
 
 LOCAL_LDLIBS := -ldl -llog
-
-LOCAL_SRC_FILES := $(addprefix badvpn/, $(TUN2SOCKS_SOURCES))
 
 include $(BUILD_SYSTEM)/build-executable.mk
 
