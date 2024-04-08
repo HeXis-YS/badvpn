@@ -27,6 +27,7 @@ LOCAL_CFLAGS += -DBADVPN_THREAD_SAFE=0 -DBADVPN_LINUX -DBADVPN_BREACTOR_BADVPN -
 LOCAL_CFLAGS += -DBADVPN_USE_SIGNALFD -DBADVPN_USE_EPOLL
 LOCAL_CFLAGS += -DBADVPN_LITTLE_ENDIAN
 LOCAL_CFLAGS += -DNDEBUG -DANDROID
+LOCAL_CFLAGS += -DMI_MALLOC_OVERRIDE
 LOCAL_CFLAGS += -I
 
 LOCAL_C_INCLUDES := \
@@ -35,7 +36,8 @@ LOCAL_C_INCLUDES := \
 	$(LOCAL_PATH)/badvpn/lwip/src/include \
 	$(LOCAL_PATH)/badvpn/lwip/src/include/ipv4 \
 	$(LOCAL_PATH)/badvpn/lwip/src/include/ipv6 \
-	$(LOCAL_PATH)/libancillary
+	$(LOCAL_PATH)/libancillary \
+	$(LOCAL_PATH)/mimalloc/include
 
 
 LOCAL_SRC_FILES := \
@@ -98,7 +100,8 @@ LOCAL_SRC_FILES := \
 	badvpn/tuntap/BTap.c \
 	badvpn/udpgw_client/UdpGwClient.c \
 	libancillary/fd_recv.c \
-	libancillary/fd_send.c
+	libancillary/fd_send.c \
+	mimalloc/src/static.c
 
 LOCAL_MODULE := tun2socks
 
