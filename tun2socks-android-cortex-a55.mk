@@ -1,18 +1,3 @@
-# Copyright (C) 2009 The Android Open Source Project
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#      http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-#
-#
 LOCAL_PATH := $(call my-dir)
 ROOT_PATH := $(LOCAL_PATH)
 
@@ -22,11 +7,20 @@ ROOT_PATH := $(LOCAL_PATH)
 
 include $(CLEAR_VARS)
 
-LOCAL_CFLAGS := -std=gnu99
+LOCAL_LDFLAGS := -Ofast -mcpu=cortex-a55 -mtune=cortex-a55 -flto=full -fno-common -fno-plt -fno-semantic-interposition -fcf-protection=none
+LOCAL_LDFLAGS += -mllvm -polly -mllvm -polly-vectorizer=stripmine -mllvm -polly-ast-use-context -mllvm -polly-loopfusion-greedy -mllvm -polly-run-inliner -mllvm -polly-run-dce -mllvm -polly -mllvm -polly-2nd-level-tiling -mllvm -polly-pattern-matching-based-opts -mllvm -polly-position=before-vectorizer
+LOCAL_LDFLAGS += -ftls-model=initial-exec -fno-builtin-malloc
+LOCAL_LDFLAGS += -fuse-ld=lld -s -Wl,-O2,--as-needed,--icf=all
+LOCAL_LDFLAGS += -static -Wl,-Bdynamic,-llog,-Bstatic,-ldl
+LOCAL_LDFLAGS += -Wl,--gc-sections
+# LOCAL_LDFLAGS += -fprofile-generate=/storage/emulated/0/Android/data/com.v2ray.ang/
+
+LOCAL_CFLAGS := -std=gnu11 $(LOCAL_LDFLAGS)
 LOCAL_CFLAGS += -DBADVPN_THREAD_SAFE=0 -DBADVPN_LINUX -DBADVPN_BREACTOR_BADVPN -D_GNU_SOURCE
 LOCAL_CFLAGS += -DBADVPN_USE_SIGNALFD -DBADVPN_USE_EPOLL
 LOCAL_CFLAGS += -DBADVPN_LITTLE_ENDIAN
 LOCAL_CFLAGS += -DNDEBUG -DANDROID
+LOCAL_CFLAGS += -DMI_MALLOC_OVERRIDE
 LOCAL_CFLAGS += -I
 
 LOCAL_C_INCLUDES := \
@@ -35,7 +29,8 @@ LOCAL_C_INCLUDES := \
 	$(LOCAL_PATH)/badvpn/lwip/src/include \
 	$(LOCAL_PATH)/badvpn/lwip/src/include/ipv4 \
 	$(LOCAL_PATH)/badvpn/lwip/src/include/ipv6 \
-	$(LOCAL_PATH)/libancillary
+	$(LOCAL_PATH)/libancillary \
+	$(LOCAL_PATH)/mimalloc/include
 
 LOCAL_SRC_FILES := \
 	badvpn/base/BLog.c \
@@ -97,11 +92,9 @@ LOCAL_SRC_FILES := \
 	badvpn/tuntap/BTap.c \
 	badvpn/udpgw_client/UdpGwClient.c \
 	libancillary/fd_recv.c \
-	libancillary/fd_send.c
+	libancillary/fd_send.c \
+	mimalloc/src/static.c
 
 LOCAL_MODULE := tun2socks
 
-LOCAL_LDLIBS := -ldl -llog
-
 include $(BUILD_SYSTEM)/build-executable.mk
-
