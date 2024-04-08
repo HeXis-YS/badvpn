@@ -43,15 +43,24 @@
 
 #if LWIP_SOCKET /* don't build if not configured for use in lwipopts.h */
 
+#if LWIP_SOCKET_EXTERNAL_HEADERS
+#include LWIP_SOCKET_EXTERNAL_HEADER_SOCKETS_H
+#else /* LWIP_SOCKET_EXTERNAL_HEADERS */
+
 #include "lwip/ip_addr.h"
 #include "lwip/netif.h"
 #include "lwip/err.h"
 #include "lwip/inet.h"
 #include "lwip/errno.h"
 
+#include <string.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+/* sockaddr and pals include length fields */
+#define LWIP_SOCKET_HAVE_SA_LEN  1
 
 /* If your port already typedef's sa_family_t, define SA_FAMILY_T_DEFINED
    to prevent this code from redefining it. */
@@ -122,11 +131,13 @@ struct iovec {
 };
 #endif
 
+typedef int msg_iovlen_t;
+
 struct msghdr {
   void         *msg_name;
   socklen_t     msg_namelen;
   struct iovec *msg_iov;
-  int           msg_iovlen;
+  msg_iovlen_t  msg_iovlen;
   void         *msg_control;
   socklen_t     msg_controllen;
   int           msg_flags;
@@ -398,7 +409,7 @@ typedef struct ipv6_mreq {
  * we restrict parameters to at most 128 bytes.
  */
 #if !defined(FIONREAD) || !defined(FIONBIO)
-#define IOCPARM_MASK    0x7fU           /* parameters must be < 128 bytes */
+#define IOCPARM_MASK    0x7fUL          /* parameters must be < 128 bytes */
 #define IOC_VOID        0x20000000UL    /* no parameters */
 #define IOC_OUT         0x40000000UL    /* copy out parameters */
 #define IOC_IN          0x80000000UL    /* copy in parameters */
@@ -442,7 +453,7 @@ typedef struct ipv6_mreq {
 #define O_NONBLOCK  1 /* nonblocking I/O */
 #endif
 #ifndef O_NDELAY
-#define O_NDELAY    1 /* same as O_NONBLOCK, for compatibility */
+#define O_NDELAY    O_NONBLOCK /* same as O_NONBLOCK, for compatibility */
 #endif
 #ifndef O_RDONLY
 #define O_RDONLY    2
@@ -465,6 +476,7 @@ typedef struct ipv6_mreq {
 #undef  FD_SETSIZE
 /* Make FD_SETSIZE match NUM_SOCKETS in socket.c */
 #define FD_SETSIZE    MEMP_NUM_NETCONN
+#define LWIP_SELECT_MAXNFDS (FD_SETSIZE + LWIP_SOCKET_OFFSET)
 #define FDSETSAFESET(n, code) do { \
   if (((n) - LWIP_SOCKET_OFFSET < MEMP_NUM_NETCONN) && (((int)(n) - LWIP_SOCKET_OFFSET) >= 0)) { \
   code; }} while(0)
@@ -480,21 +492,27 @@ typedef struct fd_set
   unsigned char fd_bits [(FD_SETSIZE+7)/8];
 } fd_set;
 
-#elif LWIP_SOCKET_OFFSET
-#error LWIP_SOCKET_OFFSET does not work with external FD_SET!
-#elif FD_SETSIZE < MEMP_NUM_NETCONN
+#elif FD_SETSIZE < (LWIP_SOCKET_OFFSET + MEMP_NUM_NETCONN)
 #error "external FD_SETSIZE too small for number of sockets"
+#else
+#define LWIP_SELECT_MAXNFDS FD_SETSIZE
 #endif /* FD_SET */
 
 /* poll-related defines and types */
 /* @todo: find a better way to guard the definition of these defines and types if already defined */
 #if !defined(POLLIN) && !defined(POLLOUT)
-#define POLLIN   1
-#define POLLOUT  2
-#define POLLERR  4
-#define POLLNVAL 8
-/* No support for POLLPRI, POLLHUP, POLLMSG, POLLRDBAND, POLLWRBAND. */
-typedef int nfds_t;
+#define POLLIN     0x1
+#define POLLOUT    0x2
+#define POLLERR    0x4
+#define POLLNVAL   0x8
+/* Below values are unimplemented */
+#define POLLRDNORM 0x10
+#define POLLRDBAND 0x20
+#define POLLPRI    0x40
+#define POLLWRNORM 0x80
+#define POLLWRBAND 0x100
+#define POLLHUP    0x200
+typedef unsigned int nfds_t;
 struct pollfd
 {
   int fd;
@@ -515,6 +533,16 @@ struct timeval {
   long    tv_usec;        /* and microseconds */
 };
 #endif /* LWIP_TIMEVAL_PRIVATE */
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* LWIP_SOCKET_EXTERNAL_HEADERS */
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #define lwip_socket_init() /* Compatibility define, no init needed. */
 void lwip_socket_thread_init(void); /* LWIP_NETCONN_SEM_PER_THREAD==1: initialize thread-local semaphore */

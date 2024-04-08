@@ -71,8 +71,11 @@ const char *snmp_community_write = SNMP_COMMUNITY_WRITE;
 /** SNMP community string for sending traps */
 const char *snmp_community_trap = SNMP_COMMUNITY_TRAP;
 
-snmp_write_callback_fct snmp_write_callback     = NULL;
-void                   *snmp_write_callback_arg = NULL;
+snmp_write_callback_fct snmp_write_callback;
+void *snmp_write_callback_arg;
+
+snmp_inform_callback_fct snmp_inform_callback;
+void *snmp_inform_callback_arg;
 
 #if LWIP_SNMP_CONFIGURE_VERSIONS
 
@@ -83,22 +86,20 @@ static u8_t v3_enabled = 1;
 static u8_t
 snmp_version_enabled(u8_t version)
 {
-  LWIP_ASSERT("Invalid SNMP version", (version == SNMP_VERSION_1) || (version == SNMP_VERSION_2c)
-#if LWIP_SNMP_V3
-              || (version == SNMP_VERSION_3)
-#endif
-             );
-
   if (version == SNMP_VERSION_1) {
     return v1_enabled;
   } else if (version == SNMP_VERSION_2c) {
     return v2c_enabled;
   }
 #if LWIP_SNMP_V3
-  else { /* version == SNMP_VERSION_3 */
+  else if (version == SNMP_VERSION_3) {
     return v3_enabled;
   }
 #endif
+  else {
+    LWIP_ASSERT("Invalid SNMP version", 0);
+    return 0;
+  }
 }
 
 u8_t
@@ -122,22 +123,19 @@ snmp_v3_enabled(void)
 static void
 snmp_version_enable(u8_t version, u8_t enable)
 {
-  LWIP_ASSERT("Invalid SNMP version", (version == SNMP_VERSION_1) || (version == SNMP_VERSION_2c)
-#if LWIP_SNMP_V3
-              || (version == SNMP_VERSION_3)
-#endif
-             );
-
   if (version == SNMP_VERSION_1) {
     v1_enabled = enable;
   } else if (version == SNMP_VERSION_2c) {
     v2c_enabled = enable;
   }
 #if LWIP_SNMP_V3
-  else { /* version == SNMP_VERSION_3 */
+  else if (version == SNMP_VERSION_3) {
     v3_enabled = enable;
   }
 #endif
+  else {
+    LWIP_ASSERT("Invalid SNMP version", 0);
+  }
 }
 
 void
@@ -182,6 +180,7 @@ snmp_get_community(void)
 void
 snmp_set_community(const char *const community)
 {
+  LWIP_ASSERT_SNMP_LOCKED();
   LWIP_ASSERT("community string is too long!", strlen(community) <= SNMP_MAX_COMMUNITY_STR_LEN);
   snmp_community = community;
 }
@@ -219,6 +218,7 @@ snmp_get_community_trap(void)
 void
 snmp_set_community_write(const char *const community)
 {
+  LWIP_ASSERT_SNMP_LOCKED();
   LWIP_ASSERT("community string must not be NULL", community != NULL);
   LWIP_ASSERT("community string is too long!", strlen(community) <= SNMP_MAX_COMMUNITY_STR_LEN);
   snmp_community_write = community;
@@ -235,6 +235,7 @@ snmp_set_community_write(const char *const community)
 void
 snmp_set_community_trap(const char *const community)
 {
+  LWIP_ASSERT_SNMP_LOCKED();
   LWIP_ASSERT("community string is too long!", strlen(community) <= SNMP_MAX_COMMUNITY_STR_LEN);
   snmp_community_trap = community;
 }
@@ -246,8 +247,20 @@ snmp_set_community_trap(const char *const community)
 void
 snmp_set_write_callback(snmp_write_callback_fct write_callback, void *callback_arg)
 {
+  LWIP_ASSERT_SNMP_LOCKED();
   snmp_write_callback     = write_callback;
   snmp_write_callback_arg = callback_arg;
+}
+
+/**
+ * @ingroup snmp_core
+ * Callback fired on every received INFORM confirmation (get-response)
+ */
+void
+snmp_set_inform_callback(snmp_inform_callback_fct inform_callback, void* callback_arg)
+{
+  snmp_inform_callback     = inform_callback;
+  snmp_inform_callback_arg = callback_arg;
 }
 
 /* ----------------------------------------------------------------------- */
@@ -285,6 +298,16 @@ snmp_receive(void *handle, struct pbuf *p, const ip_addr_t *source_ip, u16_t por
 
   err = snmp_parse_inbound_frame(&request);
   if (err == ERR_OK) {
+    if (request.request_type == SNMP_ASN1_CONTEXT_PDU_GET_RESP) {
+      if (request.error_status == SNMP_ERR_NOERROR) {
+        /* If callback function has been defined call it. */
+        if (snmp_inform_callback != NULL) {
+          snmp_inform_callback(&request, snmp_inform_callback_arg);
+        }
+      }
+      /* stop further handling of GET RESP PDU, we are an agent */
+      return;
+    }
     err = snmp_prepare_outbound_frame(&request);
     if (err == ERR_OK) {
 
@@ -452,10 +475,10 @@ snmp_process_varbind(struct snmp_request *request, struct snmp_varbind *vb, u8_t
     }
   } else {
     s16_t len = node_instance.get_value(&node_instance, vb->value);
-    vb->type = node_instance.asn1_type;
 
     if (len >= 0) {
       vb->value_len = (u16_t)len; /* cast is OK because we checked >= 0 above */
+      vb->type = node_instance.asn1_type;
 
       LWIP_ASSERT("SNMP_MAX_VALUE_SIZE is configured too low", (vb->value_len & ~SNMP_GET_VALUE_RAW_DATA) <= SNMP_MAX_VALUE_SIZE);
       err = snmp_append_outbound_varbind(&request->outbound_pbuf_stream, vb);
@@ -624,7 +647,7 @@ snmp_process_getbulk_request(struct snmp_request *request)
         /* no more varbinds in request */
         break;
       } else {
-        LWIP_DEBUGF(SNMP_DEBUG, ("Very strange, we cannot parse the varbind output that we created just before!"));
+        LWIP_DEBUGF(SNMP_DEBUG, ("Very strange, we cannot parse the varbind output that we created just before!\n"));
         request->error_status = SNMP_ERR_GENERROR;
         request->error_index  = request->non_repeaters + repetition_varbind_enumerator.varbind_count;
       }
@@ -742,6 +765,7 @@ snmp_process_set_request(struct snmp_request *request)
 #define PARSE_ASSERT(cond, retValue) \
   if (!(cond)) { \
     LWIP_DEBUGF(SNMP_DEBUG, ("SNMP parse assertion failed!: " # cond)); \
+    LWIP_DEBUGF(SNMP_DEBUG, ("\n")); \
     snmp_stats.inasnparseerrs++; \
     return retValue; \
   }
@@ -749,6 +773,7 @@ snmp_process_set_request(struct snmp_request *request)
 #define BUILD_EXEC(code, retValue) \
   if ((code) != ERR_OK) { \
     LWIP_DEBUGF(SNMP_DEBUG, ("SNMP error during creation of outbound frame!: " # code)); \
+    LWIP_DEBUGF(SNMP_DEBUG, ("\n")); \
     return retValue; \
   }
 
@@ -816,7 +841,7 @@ snmp_parse_inbound_frame(struct snmp_request *request)
     /* @todo: Differentiate read/write access */
     strncpy((char *)request->community, snmp_community, SNMP_MAX_COMMUNITY_STR_LEN);
     request->community[SNMP_MAX_COMMUNITY_STR_LEN] = 0; /* ensure NULL termination (strncpy does NOT guarantee it!) */
-    request->community_strlen = (u16_t)strnlen((char *)request->community, SNMP_MAX_COMMUNITY_STR_LEN);
+    request->community_strlen = (u16_t)strlen((char *)request->community);
 
     /* RFC3414 globalData */
     IF_PARSE_EXEC(snmp_asn1_dec_tlv(&pbuf_stream, &tlv));
@@ -1052,13 +1077,13 @@ snmp_parse_inbound_frame(struct snmp_request *request)
       }
       {
         s32_t time = snmpv3_get_engine_time_internal();
-        if (request->msg_authoritative_engine_time > time) {
+        if (request->msg_authoritative_engine_time > (time + 150)) {
           snmp_stats.notintimewindows++;
           request->msg_flags = SNMP_V3_AUTHNOPRIV;
           request->error_status = SNMP_ERR_NOTINTIMEWINDOW;
           return ERR_OK;
         } else if (time > 150) {
-          if (request->msg_authoritative_engine_time < time - 150) {
+          if (request->msg_authoritative_engine_time < (time - 150)) {
             snmp_stats.notintimewindows++;
             request->msg_flags = SNMP_V3_AUTHNOPRIV;
             request->error_status = SNMP_ERR_NOTINTIMEWINDOW;
@@ -1175,9 +1200,13 @@ snmp_parse_inbound_frame(struct snmp_request *request)
       /* SetRequest PDU */
       snmp_stats.insetrequests++;
       break;
+    case (SNMP_ASN1_CLASS_CONTEXT | SNMP_ASN1_CONTENTTYPE_CONSTRUCTED | SNMP_ASN1_CONTEXT_PDU_GET_RESP):
+      /* GetResponse PDU */
+      snmp_stats.ingetresponses++;
+      break;
     default:
       /* unsupported input PDU for this agent (no parse error) */
-      LWIP_DEBUGF(SNMP_DEBUG, ("Unknown/Invalid SNMP PDU type received: %d", tlv.type)); \
+      LWIP_DEBUGF(SNMP_DEBUG, ("Unknown/Invalid SNMP PDU type received: %d\n", tlv.type)); \
       return ERR_ARG;
   }
   request->request_type = tlv.type & SNMP_ASN1_DATATYPE_MASK;
@@ -1752,7 +1781,7 @@ snmp_complete_outbound_frame(struct snmp_request *request)
     if (request->error_status == SNMP_ERR_TOOBIG) {
       request->error_index = 0; /* defined by RFC 1157 */
     } else if (request->error_index == 0) {
-      /* set index to varbind where error occured (if not already set before, e.g. during GetBulk processing) */
+      /* set index to varbind where error occurred (if not already set before, e.g. during GetBulk processing) */
       request->error_index = request->inbound_varbind_enumerator.varbind_count;
     }
   } else {

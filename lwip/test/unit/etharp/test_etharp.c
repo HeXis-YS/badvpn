@@ -2,6 +2,7 @@
 
 #include "lwip/udp.h"
 #include "lwip/etharp.h"
+#include "lwip/inet.h"
 #include "netif/ethernet.h"
 #include "lwip/stats.h"
 #include "lwip/prot/iana.h"
@@ -139,7 +140,7 @@ START_TEST(test_etharp_table)
 #if ETHARP_SUPPORT_STATIC_ENTRIES
   err_t err;
 #endif /* ETHARP_SUPPORT_STATIC_ENTRIES */
-  s8_t idx;
+  ssize_t idx;
   const ip4_addr_t *unused_ipaddr;
   struct eth_addr *unused_ethaddr;
   struct udp_pcb* pcb;

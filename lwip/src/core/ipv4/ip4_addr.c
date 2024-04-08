@@ -73,7 +73,7 @@ ip4_addr_isbroadcast_u32(u32_t addr, const struct netif *netif)
   } else if (addr == ip4_addr_get_u32(netif_ip4_addr(netif))) {
     return 0;
     /*  on the same (sub) network... */
-  } else if (ip4_addr_netcmp(&ipaddr, netif_ip4_addr(netif), netif_ip4_netmask(netif))
+  } else if (ip4_addr_net_eq(&ipaddr, netif_ip4_addr(netif), netif_ip4_netmask(netif))
              /* ...and host identifier bits are all ones? =>... */
              && ((addr & ~ip4_addr_get_u32(netif_ip4_netmask(netif))) ==
                  (IPADDR_BROADCAST & ~ip4_addr_get_u32(netif_ip4_netmask(netif))))) {
@@ -111,16 +111,6 @@ ip4_addr_netmask_valid(u32_t netmask)
   /* no one after the first zero -> valid */
   return 1;
 }
-
-/* Here for now until needed in other places in lwIP */
-#ifndef isprint
-#define in_range(c, lo, up)  ((u8_t)c >= lo && (u8_t)c <= up)
-#define isprint(c)           in_range(c, 0x20, 0x7f)
-#define isdigit(c)           in_range(c, '0', '9')
-#define isxdigit(c)          (isdigit(c) || in_range(c, 'a', 'f') || in_range(c, 'A', 'F'))
-#define islower(c)           in_range(c, 'a', 'z')
-#define isspace(c)           (c == ' ' || c == '\f' || c == '\n' || c == '\r' || c == '\t' || c == '\v')
-#endif
 
 /**
  * Ascii internet address interpretation routine.
@@ -167,7 +157,7 @@ ip4addr_aton(const char *cp, ip4_addr_t *addr)
      * Values are specified as for C:
      * 0x=hex, 0=octal, 1-9=decimal.
      */
-    if (!isdigit(c)) {
+    if (!lwip_isdigit(c)) {
       return 0;
     }
     val = 0;
@@ -182,11 +172,13 @@ ip4addr_aton(const char *cp, ip4_addr_t *addr)
       }
     }
     for (;;) {
-      if (isdigit(c)) {
+      if (lwip_isdigit(c)) {
+        if((base == 8) && ((u32_t)(c - '0') >= 8))
+          break;
         val = (val * base) + (u32_t)(c - '0');
         c = *++cp;
-      } else if (base == 16 && isxdigit(c)) {
-        val = (val << 4) | (u32_t)(c + 10 - (islower(c) ? 'a' : 'A'));
+      } else if (base == 16 && lwip_isxdigit(c)) {
+        val = (val << 4) | (u32_t)(c + 10 - (lwip_islower(c) ? 'a' : 'A'));
         c = *++cp;
       } else {
         break;
@@ -211,7 +203,7 @@ ip4addr_aton(const char *cp, ip4_addr_t *addr)
   /*
    * Check for trailing characters.
    */
-  if (c != '\0' && !isspace(c)) {
+  if (c != '\0' && !lwip_isspace(c)) {
     return 0;
   }
   /*

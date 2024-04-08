@@ -263,7 +263,7 @@ ip_AddrTable_get_cell_value(const u32_t *column, const u32_t *row_oid, u8_t row_
 
   /* find netif with requested ip */
   NETIF_FOREACH(netif) {
-    if (ip4_addr_cmp(&ip, netif_ip4_addr(netif))) {
+    if (ip4_addr_eq(&ip, netif_ip4_addr(netif))) {
       /* fill in object properties */
       return ip_AddrTable_get_cell_value_core(netif, column, value, value_len);
     }
@@ -417,7 +417,7 @@ ip_RouteTable_get_cell_value(const u32_t *column, const u32_t *row_oid, u8_t row
     ip4_addr_t dst;
     ip4_addr_get_network(&dst, netif_ip4_addr(netif), netif_ip4_netmask(netif));
 
-    if (ip4_addr_cmp(&dst, &test_ip)) {
+    if (ip4_addr_eq(&dst, &test_ip)) {
       /* fill in object properties */
       return ip_RouteTable_get_cell_value_core(netif, 0, column, value, value_len);
     }
@@ -482,7 +482,7 @@ static const struct snmp_oid_range ip_NetToMediaTable_oid_ranges[] = {
 };
 
 static snmp_err_t
-ip_NetToMediaTable_get_cell_value_core(u8_t arp_table_index, const u32_t *column, union snmp_variant_value *value, u32_t *value_len)
+ip_NetToMediaTable_get_cell_value_core(size_t arp_table_index, const u32_t *column, union snmp_variant_value *value, u32_t *value_len)
 {
   ip4_addr_t *ip;
   struct netif *netif;
@@ -517,7 +517,7 @@ ip_NetToMediaTable_get_cell_value(const u32_t *column, const u32_t *row_oid, u8_
 {
   ip4_addr_t ip_in;
   u8_t netif_index;
-  u8_t i;
+  size_t i;
 
   /* check if incoming OID length and if values are in plausible range */
   if (!snmp_oid_in_range(row_oid, row_oid_len, ip_NetToMediaTable_oid_ranges, LWIP_ARRAYSIZE(ip_NetToMediaTable_oid_ranges))) {
@@ -535,7 +535,7 @@ ip_NetToMediaTable_get_cell_value(const u32_t *column, const u32_t *row_oid, u8_
     struct eth_addr *ethaddr;
 
     if (etharp_get_entry(i, &ip, &netif, &ethaddr)) {
-      if ((netif_index == netif_to_num(netif)) && ip4_addr_cmp(&ip_in, ip)) {
+      if ((netif_index == netif_to_num(netif)) && ip4_addr_eq(&ip_in, ip)) {
         /* fill in object properties */
         return ip_NetToMediaTable_get_cell_value_core(i, column, value, value_len);
       }
@@ -549,7 +549,7 @@ ip_NetToMediaTable_get_cell_value(const u32_t *column, const u32_t *row_oid, u8_
 static snmp_err_t
 ip_NetToMediaTable_get_next_cell_instance_and_value(const u32_t *column, struct snmp_obj_id *row_oid, union snmp_variant_value *value, u32_t *value_len)
 {
-  u8_t i;
+  size_t i;
   struct snmp_next_oid_state state;
   u32_t result_temp[LWIP_ARRAYSIZE(ip_NetToMediaTable_oid_ranges)];
 
@@ -577,7 +577,7 @@ ip_NetToMediaTable_get_next_cell_instance_and_value(const u32_t *column, struct 
   if (state.status == SNMP_NEXT_OID_STATUS_SUCCESS) {
     snmp_oid_assign(row_oid, state.next_oid, state.next_oid_len);
     /* fill in object properties */
-    return ip_NetToMediaTable_get_cell_value_core(LWIP_PTR_NUMERIC_CAST(u8_t, state.reference), column, value, value_len);
+    return ip_NetToMediaTable_get_cell_value_core(LWIP_PTR_NUMERIC_CAST(size_t, state.reference), column, value, value_len);
   }
 
   /* not found */
