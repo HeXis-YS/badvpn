@@ -30,51 +30,96 @@
 #ifndef LWIP_CUSTOM_LWIPOPTS_H
 #define LWIP_CUSTOM_LWIPOPTS_H
 
+// Platform specific locking
+#define SYS_LIGHTWEIGHT_PROT 0
 #define NO_SYS 1
-#define LWIP_TIMERS 0
-#define MEM_ALIGNMENT 4
 
+// Memory options
+#define MEM_ALIGNMENT 4U
+#define MEM_LIBC_MALLOC 1
+#define MEMP_MEM_MALLOC 1
+
+// Internal Memory Pool Sizes
+#define MEMP_NUM_PBUF 1024
+// #define MEMP_NUM_UDP_PCB 1024
+#define MEMP_NUM_TCP_PCB 1024
+#define MEMP_NUM_TCP_PCB_LISTEN 16
+#define MEMP_NUM_TCP_SEG 8192
+#define PBUF_POOL_SIZE 32
+
+// ARP options
 #define LWIP_ARP 0
 #define ARP_QUEUEING 0
-#define IP_FORWARD 0
+
+// IPv6 options
+#define LWIP_IPV6 1
+#define LWIP_IPV6_MLD 0
+#define LWIP_IPV6_AUTOCONFIG 0
+#ifdef __LP64__
+#define IPV6_FRAG_COPYHEADER 1
+#endif
+
+// ICMP options
 #define LWIP_ICMP 1
+
+// RAW options
 #define LWIP_RAW 0
+
+// DHCP options
 #define LWIP_DHCP 0
+
+// AUTOIP options
 #define LWIP_AUTOIP 0
+
+// SNMP options
 #define LWIP_SNMP 0
+
+// IGMP options
 #define LWIP_IGMP 0
+
+// DNS options
 #define LWIP_DNS 0
+
+// UDP options
 #define LWIP_UDP 0
 #define LWIP_UDPLITE 0
+
+// TCP options
 #define LWIP_TCP 1
+#define TCP_MSS 8191
+#define TCP_WND (8 * TCP_MSS)
+#define TCP_SND_BUF (8 * TCP_MSS)
+#define TCP_SND_QUEUELEN ((128 * (TCP_SND_BUF) + (TCP_MSS - 1))/(TCP_MSS))
+
+// Sequential layer options
+#define LWIP_NETCONN 0
+
+// Socket options
+#define LWIP_SOCKET 0
+
+// PPP options
+#define PPP_SUPPORT 0
+
+// Checksum options
+#define CHECKSUM_CHECK_IP 0
+#define CHECKSUM_CHECK_UDP 0
+#define CHECKSUM_CHECK_TCP 0
+#define CHECKSUM_CHECK_ICMP 0
+#define CHECKSUM_CHECK_ICMP6 0
+#define LWIP_CHECKSUM_ON_COPY 1
+
+
+#define LWIP_TIMERS 0
+
+#define IP_FORWARD 0
 #define LWIP_CALLBACK_API 1
 #define LWIP_NETIF_API 0
 #define LWIP_NETIF_LOOPBACK 0
 #define LWIP_HAVE_LOOPIF 0
 #define LWIP_HAVE_SLIPIF 0
-#define LWIP_NETCONN 0
-#define LWIP_SOCKET 0
-#define PPP_SUPPORT 0
-#define LWIP_IPV6 1
-#define LWIP_IPV6_MLD 0
-#define LWIP_IPV6_AUTOCONFIG 0
-
-#define MEMP_NUM_TCP_PCB_LISTEN 16
-#define MEMP_NUM_TCP_PCB 1024
-#define TCP_MSS 1460
-#define TCP_SND_BUF 16384
-#define TCP_SND_QUEUELEN (4 * (TCP_SND_BUF)/(TCP_MSS))
-
-#define MEM_LIBC_MALLOC 1
-#define MEMP_MEM_MALLOC 1
 
 #define LWIP_PERF 0
-#define SYS_LIGHTWEIGHT_PROT 0
 #define LWIP_DONT_PROVIDE_BYTEORDER_FUNCTIONS
-
-// needed on 64-bit systems, enable it always so that the same configuration
-// is used regardless of the platform
-#define IPV6_FRAG_COPYHEADER 1
 
 /*
 #define LWIP_DEBUG 1
