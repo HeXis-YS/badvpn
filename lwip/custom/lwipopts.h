@@ -42,7 +42,7 @@
 // Internal Memory Pool Sizes
 #define MEMP_NUM_PBUF 1024
 // #define MEMP_NUM_UDP_PCB 1024
-#define MEMP_NUM_TCP_PCB 1024
+#define MEMP_NUM_TCP_PCB 4096
 #define MEMP_NUM_TCP_PCB_LISTEN 16
 #define MEMP_NUM_TCP_SEG 8192
 #define PBUF_POOL_SIZE 32
