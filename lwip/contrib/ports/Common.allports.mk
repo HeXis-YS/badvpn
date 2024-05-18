@@ -43,7 +43,7 @@ CFLAGS+=-g -DLWIP_DEBUG -Wall -pedantic -Werror \
 #	-Wconversion -Wsign-compare -Wmissing-include-dirs
 
 ifeq (,$(findstring clang,$(CC)))
-CFLAGS+= -Wlogical-op -Wc90-c99-compat -Wtrampolines
+CFLAGS+= -Wlogical-op -Wno-c90-c99-compat -Wtrampolines
 # if GCC is newer than 4.8/4.9 you may use:
 #CFLAGS:=$(CFLAGS) -fsanitize=address -fstack-protector -fstack-check -fsanitize=undefined -fno-sanitize=alignment
 else

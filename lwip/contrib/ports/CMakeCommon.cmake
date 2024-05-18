@@ -80,7 +80,7 @@ if(CMAKE_C_COMPILER_ID STREQUAL "GNU")
 
     if (NOT LWIP_HAVE_MBEDTLS)
         list(APPEND LWIP_COMPILER_FLAGS_GNU_CLANG
-            $<$<COMPILE_LANGUAGE:C>:-Wc90-c99-compat>
+            $<$<COMPILE_LANGUAGE:C>:-Wno-c90-c99-compat>
         )
     endif()
 

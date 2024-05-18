@@ -51,8 +51,14 @@
         #include <linux/if_tun.h>
     #endif
     #ifdef BADVPN_FREEBSD
+#ifdef __APPLE__
+#include <ctype.h>
+#include <netinet/ip.h>
+#include <sys/uio.h>
+#else
         #include <net/if_tun.h>
         #include <net/if_tap.h>
+#endif
     #endif
 #endif
 
@@ -334,6 +340,7 @@ fail0:
         } break;
         
         case BTAP_INIT_STRING: {
+            #if ! __APPLE__
             char devname_real[IFNAMSIZ];
             
             #ifdef BADVPN_LINUX
@@ -428,6 +435,7 @@ fail0:
             }
             
             close(sock);
+            #endif
         } break;
         
         default: ASSERT(0);
@@ -472,6 +480,9 @@ success:
 
 void BTap_Free (BTap *o)
 {
+    o->tunnel_writer = NULL;
+    o->tunnel_writer_ctx = NULL;
+
     DebugObject_Free(&o->d_obj);
     DebugError_Free(&o->d_err);
     
@@ -558,7 +569,10 @@ void BTap_Send (BTap *o, uint8_t *data, int data_len)
     }
     
 #else
-    
+    if (o->tunnel_writer) {
+        o->tunnel_writer(data, data_len, o->tunnel_writer_ctx);
+        return;
+    }
     int bytes = write(o->fd, data, data_len);
     if (bytes < 0) {
         // malformed packets will cause errors, ignore them and act like
