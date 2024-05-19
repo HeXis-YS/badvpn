@@ -580,6 +580,8 @@ int main (int argc, char **argv)
         goto fail2;
     }
 
+    memset(&device, 0, sizeof(device));
+
 #ifdef __ANDROID__
     struct BTap_init_data init_data;
     init_data.dev_type = BTAP_DEV_TUN;
@@ -1278,7 +1280,7 @@ void lwip_init_job_hadler (void *unused)
     netif_set_link_up(&the_netif);
 
     // set netif pretend TCP
-    netif_set_pretend_tcp(&the_netif, 1);
+    //netif_set_pretend_tcp(&the_netif, 1);
 
     // set netif default
     netif_set_default(&the_netif);
@@ -1300,11 +1302,11 @@ void lwip_init_job_hadler (void *unused)
     }
 
     // bind listener
-    if (tcp_bind_to_netif(l, "ho0") != ERR_OK) {
-        BLog(BLOG_ERROR, "tcp_bind_to_netif failed");
-        tcp_close(l);
-        goto fail;
-    }
+    // if (tcp_bind_to_netif(l, "ho0") != ERR_OK) {
+    //    BLog(BLOG_ERROR, "tcp_bind_to_netif failed");
+    //    tcp_close(l);
+    //    goto fail;
+    // }
 
     // ensure the listener only accepts connections from this netif
     tcp_bind_netif(l, &the_netif);
@@ -1326,11 +1328,11 @@ void lwip_init_job_hadler (void *unused)
             goto fail;
         }
 
-        if (tcp_bind_to_netif(l_ip6, "ho0") != ERR_OK) {
-            BLog(BLOG_ERROR, "tcp_bind_to_netif failed");
-            tcp_close(l_ip6);
-            goto fail;
-        }
+        // if (tcp_bind_to_netif(l_ip6, "ho0") != ERR_OK) {
+        //    BLog(BLOG_ERROR, "tcp_bind_to_netif failed");
+        //    tcp_close(l_ip6);
+        //    goto fail;
+        // }
 
         tcp_bind_netif(l_ip6, &the_netif);
 

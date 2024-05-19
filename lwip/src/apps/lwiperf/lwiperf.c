@@ -56,9 +56,6 @@
 #include "lwip/inet.h"
 
 #include <string.h>
-#if __linux__
-#include <arpa/inet.h>
-#endif
 
 /* Currently, only TCP is implemented */
 #if LWIP_TCP && LWIP_CALLBACK_API
