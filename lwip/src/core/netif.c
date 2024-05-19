@@ -665,16 +665,6 @@ netif_set_gw(struct netif *netif, const ip4_addr_t *gw)
   }
 }
 
-void
-netif_set_pretend_tcp (struct netif *netif, u8_t pretend)
-{
-    if (pretend) {
-        netif->flags |= NETIF_FLAG_PRETEND_TCP;
-    } else {
-        netif->flags &= ~NETIF_FLAG_PRETEND_TCP;
-    }
-}
-
 /**
  * @ingroup netif_ip4
  * Change IP address configuration for a network interface (including netmask
@@ -846,12 +836,6 @@ netif_remove(struct netif *netif)
   }
 #endif /* LWIP_NETIF_REMOVE_CALLBACK */
   LWIP_DEBUGF( NETIF_DEBUG, ("netif_remove: removed netif\n") );
-}
-
-int netif_is_named (struct netif *netif, const char name[3])
-{
-    u8_t num = name[2] - '0';
-    return (!memcmp(netif->name, name, 2) && netif->num == num);
 }
 
 /**
@@ -1425,7 +1409,7 @@ netif_ip6_addr_set_parts(struct netif *netif, s8_t addr_idx, u32_t i0, u32_t i1,
     if (ip6_addr_isvalid(netif_ip6_addr_state(netif, addr_idx))) {
       netif_do_ip_addr_changed(netif_ip_addr6(netif, addr_idx), &new_ipaddr);
     }
-    /* @todo: remove/readd mib2 ip6 entries? */
+    /* @todo: remove/re-add mib2 ip6 entries? */
 
     ip_addr_copy(netif->ip6_addr[addr_idx], new_ipaddr);
 
