@@ -1,5 +1,17 @@
-cmake_minimum_required(VERSION 2.8)
+cmake_minimum_required(VERSION 3.0)
 project(BADVPN C)
+
+if(ANDROID)
+    set(BUILD_NOTHING_BY_DEFAULT 1 CACHE INTERNAL "BUILD_NOTHING_BY_DEFAULT" )
+    set(BUILD_TUN2SOCKS 1 CACHE INTERNAL "BUILD_TUN2SOCKS" )
+    set(HAVE_SYSLOG_H 1 CACHE INTERNAL "HAVE_SYSLOG_H" )
+
+    set(CMAKE_C_FLAGS  "${CMAKE_C_FLAGS} -Wall -Wextra -std=gnu99")
+
+    add_definitions(-DBADVPN_THREADWORK_USE_PTHREAD -DBADVPN_LINUX -DBADVPN_BREACTOR_BADVPN -D_GNU_SOURCE)
+    add_definitions(-DBADVPN_USE_SIGNALFD -DBADVPN_USE_EPOLL)
+    add_definitions(-DBADVPN_LITTLE_ENDIAN -DBADVPN_THREAD_SAFE)
+endif()
 
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/modules")
 
@@ -10,6 +22,8 @@ include(CheckSymbolExists)
 include(CheckTypeSize)
 
 option(WITH_PLUGIN_LIBS "Build PIC versions of all libraries for use from plugins" OFF)
+
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=c99")
 
 set(BUILD_COMPONENTS)
 
@@ -169,7 +183,9 @@ else ()
     add_definitions(-DBADVPN_THREADWORK_USE_PTHREAD)
     add_definitions(-DBADVPN_THREAD_SAFE=1)
 
-    link_libraries(rt pthread)
+    if (NOT ANDROID AND NOT CMAKE_SYSTEM_NAME MATCHES "Darwin" AND NOT CMAKE_SYSTEM_NAME MATCHES "iOS")
+        link_libraries(rt pthread)
+    endif ()
 
     if (EMSCRIPTEN)
         add_definitions(-DBADVPN_EMSCRIPTEN)
@@ -208,7 +224,7 @@ else ()
             add_definitions(-DBADVPN_USE_INOTIFY)
             set(BADVPN_USE_INOTIFY 1)
         endif ()
-    elseif (CMAKE_SYSTEM_NAME MATCHES "FreeBSD")
+    elseif (CMAKE_SYSTEM_NAME MATCHES "FreeBSD" OR CMAKE_SYSTEM_NAME MATCHES "Darwin" OR CMAKE_SYSTEM_NAME MATCHES "iOS")
         add_definitions(-DBADVPN_FREEBSD)
 
         check_symbol_exists(kqueue "sys/types.h;sys/event.h;sys/time.h" HAVE_KQUEUE)

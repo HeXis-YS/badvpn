@@ -1,5 +1,14 @@
 # BadVPN
 
+## build command
+```bash
+mkdir build
+cd build
+rm -rf *
+cmake .. -DBUILD_NOTHING_BY_DEFAULT=1 -DBUILD_TUN2SOCKS=1
+make
+```
+
 ## Introduction
 
 In this project I host some of my open-source networking software.

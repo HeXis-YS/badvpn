@@ -679,12 +679,6 @@ netif_found:
     goto ip6_input_cleanup;
   }
 
-  /* if we're pretending we are everyone for TCP, assume the packet is for source interface if it
-     isn't for a local address */
-  if (netif == NULL && (inp->flags & NETIF_FLAG_PRETEND_TCP) && IP6H_NEXTH(ip6hdr) == IP6_NEXTH_TCP) {
-      netif = inp;
-  }
-
   /* packet not for us? */
   if (netif == NULL) {
     /* packet not for us, route or discard */
@@ -1017,9 +1011,10 @@ netif_found:
           goto ip6_input_cleanup;
         }
 
-        /* Returned p point to IPv6 header.
+        /* Returned p points to IPv6 header.
          * Update all our variables and pointers and continue. */
         ip6hdr = (struct ip6_hdr *)p->payload;
+        ip_data.current_ip6_header = ip6hdr;
         nexth = &IP6H_NEXTH(ip6hdr);
         hlen = hlen_tot = IP6_HLEN;
         pbuf_remove_header(p, IP6_HLEN);

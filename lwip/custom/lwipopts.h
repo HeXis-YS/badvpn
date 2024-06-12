@@ -48,7 +48,7 @@
 #define PBUF_POOL_SIZE 32
 
 // ARP options
-#define LWIP_ARP 0
+#define LWIP_ARP 1
 #define ARP_QUEUEING 0
 
 // IPv6 options
@@ -109,7 +109,7 @@
 #define LWIP_CHECKSUM_ON_COPY 1
 
 
-#define LWIP_TIMERS 0
+#define LWIP_TIMERS 1
 
 #define IP_FORWARD 0
 #define LWIP_CALLBACK_API 1

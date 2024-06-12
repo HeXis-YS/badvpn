@@ -35,6 +35,9 @@
 #include <string.h>
 #include <unistd.h>
 #include <errno.h>
+#ifdef __APPLE__
+#define	IPV6_PKTINFO	IPV6_2292PKTINFO
+#endif
 #include <sys/types.h>
 #include <sys/socket.h>
 #ifdef BADVPN_LINUX
@@ -48,6 +51,7 @@
 #include "BDatagram.h"
 
 #include <generated/blog_channel_BDatagram.h>
+#include "BReactor_badvpn.h"
 
 struct sys_addr {
     socklen_t len;
@@ -284,7 +288,29 @@ static void do_send (BDatagram *o)
     struct cmsghdr *cmsg = CMSG_FIRSTHDR(&msg);
     
     size_t controllen = 0;
-    
+#ifdef __APPLE__
+    int bytes = -1;
+    switch (o->send.local_addr.type) {
+        case BADDR_TYPE_IPV4: {
+            bytes = (int) sendto(o->fd, iov.iov_base, iov.iov_len, 0, msg.msg_name, msg.msg_namelen);
+        } break;
+
+        case BADDR_TYPE_IPV6: {
+            memset(cmsg, 0, CMSG_SPACE(sizeof(struct in6_pktinfo)));
+            cmsg->cmsg_level = IPPROTO_IPV6;
+            cmsg->cmsg_type = IPV6_PKTINFO;
+            cmsg->cmsg_len = CMSG_LEN(sizeof(struct in6_pktinfo));
+            struct in6_pktinfo *pktinfo = (struct in6_pktinfo *)CMSG_DATA(cmsg);
+            memcpy(pktinfo->ipi6_addr.s6_addr, o->send.local_addr.ipv6, 16);
+            controllen += CMSG_SPACE(sizeof(struct in6_pktinfo));
+            msg.msg_controllen = (socklen_t) controllen;
+            if (msg.msg_controllen == 0) {
+                msg.msg_control = NULL;
+            }
+            bytes = (int) sendmsg(o->fd, &msg, 0);
+        } break;
+    }
+#else
     switch (o->send.local_addr.type) {
         case BADDR_TYPE_IPV4: {
 #ifdef BADVPN_FREEBSD
@@ -325,6 +351,7 @@ static void do_send (BDatagram *o)
     
     // send
     int bytes = sendmsg(o->fd, &msg, 0);
+#endif
     if (bytes < 0) {
         if (errno == EAGAIN || errno == EWOULDBLOCK) {
             // wait for fd
@@ -333,6 +360,7 @@ static void do_send (BDatagram *o)
             return;
         }
         
+        BLog(BLOG_ERROR, "send failed");
         report_error(o);
         return;
     }
@@ -402,7 +430,7 @@ static void do_recv (BDatagram *o)
     msg.msg_controllen = sizeof(cdata);
     
     // recv
-    int bytes = recvmsg(o->fd, &msg, 0);
+    int bytes = (int) recvmsg(o->fd, &msg, 0);
     if (bytes < 0) {
         if (errno == EAGAIN || errno == EWOULDBLOCK) {
             // wait for fd
