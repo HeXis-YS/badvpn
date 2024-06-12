@@ -28,7 +28,7 @@ install -m644 $__dir/tun2socks-android-cortex-a55.mk $TMPDIR/
 pushd $TMPDIR
 cp -r $__dir badvpn
 git clone --depth=1 https://github.com/mhaberler/libancillary.git
-git clone --depth=1 -b v2.1.2 https://github.com/microsoft/mimalloc.git
+git clone --depth=1 -b v2.1.7 https://github.com/microsoft/mimalloc.git
 $NDK_HOME/ndk-build \
 	NDK_PROJECT_PATH=. \
 	APP_BUILD_SCRIPT=./tun2socks-android-cortex-a55.mk \

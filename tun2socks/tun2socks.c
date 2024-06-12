@@ -65,7 +65,9 @@
 #include <lwip/nd6.h>
 #include <lwip/ip6_frag.h>
 #include <tun2socks/SocksUdpGwClient.h>
+#ifndef __ANDROID__
 #include <socks_udp_client/SocksUdpClient.h>
+#endif
 
 #ifndef BADVPN_USE_WINAPI
 #include <base/BLog_syslog.h>
@@ -198,7 +200,6 @@ struct {
     int udpgw_max_connections;
     int udpgw_connection_buffer_size;
     int udpgw_transparent_dns;
-    int socks5_udp;
 #ifdef __ANDROID__
     int tun_mtu;
     int fake_proc;
@@ -207,6 +208,7 @@ struct {
     char *dnsgw;
 #else
     char *tundev;
+    int socks5_udp;
 #endif
 } options;
 
@@ -273,15 +275,21 @@ SinglePacketBuffer device_read_buffer;
 PacketPassInterface device_read_interface;
 
 // UDP support mode
+#ifdef __ANDROID__
+enum UdpMode {UdpModeNone, UdpModeUdpgw};
+#else
 enum UdpMode {UdpModeNone, UdpModeUdpgw, UdpModeSocks};
+#endif
 enum UdpMode udp_mode;
 
 // udpgw client
 SocksUdpGwClient udpgw_client;
 int udp_mtu;
 
+#ifndef __ANDROID__
 // SOCKS5-UDP client
 SocksUdpClient socks_udp_client;
+#endif
 
 // TCP timer
 BTimer tcp_timer;
@@ -643,6 +651,7 @@ int main (int argc, char **argv)
             BLog(BLOG_ERROR, "SocksUdpGwClient_Init failed");
             goto fail4a;
         }
+#ifndef __ANDROID__
     } else if (options.socks5_udp) {
         udp_mode = UdpModeSocks;
 
@@ -650,6 +659,7 @@ int main (int argc, char **argv)
         SocksUdpClient_Init(&socks_udp_client, udp_mtu, DEFAULT_UDPGW_MAX_CONNECTIONS,
             SOCKS_UDP_SEND_BUFFER_PACKETS, UDPGW_KEEPALIVE_TIME, socks_server_addr,
             socks_auth_info, socks_num_auth_info, &ss, NULL, udp_send_packet_to_device);
+#endif
     } else {
         udp_mode = UdpModeNone;
     }
@@ -722,8 +732,10 @@ fail5:
     BPending_Free(&lwip_init_job);
     if (udp_mode == UdpModeUdpgw) {
         SocksUdpGwClient_Free(&udpgw_client);
+#ifndef __ANDROID__
     } else if (udp_mode == UdpModeSocks) {
         SocksUdpClient_Free(&socks_udp_client);
+#endif
     }
 fail4a:
     SinglePacketBuffer_Free(&device_read_buffer);
@@ -799,8 +811,8 @@ void print_help (const char *name)
         "        [--udpgw-max-connections <number>]\n"
         "        [--udpgw-connection-buffer-size <number>]\n"
         "        [--udpgw-transparent-dns]\n"
-#endif
         "        [--socks5-udp]\n"
+#endif
         "Address format is a.b.c.d:port (IPv4) or [addr]:port (IPv6).\n",
         name
     );
@@ -835,6 +847,7 @@ int parse_arguments (int argc, char *argv[])
     options.sock_path = NULL;
 #else
     options.tundev = NULL;
+    options.socks5_udp = 0;
 #endif
     options.netif_ipaddr = NULL;
     options.netif_netmask = NULL;
@@ -848,7 +861,6 @@ int parse_arguments (int argc, char *argv[])
     options.udpgw_max_connections = DEFAULT_UDPGW_MAX_CONNECTIONS;
     options.udpgw_connection_buffer_size = DEFAULT_UDPGW_CONNECTION_BUFFER_SIZE;
     options.udpgw_transparent_dns = 0;
-    options.socks5_udp = 0;
 
     int i;
     for (i = 1; i < argc; i++) {
@@ -1077,10 +1089,10 @@ int parse_arguments (int argc, char *argv[])
         else if (!strcmp(arg, "--udpgw-transparent-dns")) {
             options.udpgw_transparent_dns = 1;
         }
-#endif
         else if (!strcmp(arg, "--socks5-udp")) {
             options.socks5_udp = 1;
         }
+#endif
         else {
             fprintf(stderr, "unknown option: %s\n", arg);
             return 0;
@@ -1592,8 +1604,10 @@ int process_device_udp_packet (uint8_t *data, int data_len)
     if (udp_mode == UdpModeUdpgw) {
         SocksUdpGwClient_SubmitPacket(&udpgw_client, local_addr, remote_addr,
                                       is_dns, data, data_len);
+#ifndef __ANDROID__
     } else if (udp_mode == UdpModeSocks) {
         SocksUdpClient_SubmitPacket(&socks_udp_client, local_addr, remote_addr, data, data_len);
+#endif
     }
     return 1;
 
@@ -2262,7 +2276,9 @@ void udp_send_packet_to_device (void *unused, BAddr local_addr, BAddr remote_add
     ASSERT(local_addr.type == remote_addr.type)
     ASSERT(data_len >= 0)
 
+#ifndef __ANDROID__
     char const *source_name = (udp_mode == UdpModeUdpgw) ? "udpgw" : "SOCKS UDP";
+#endif
     
     int packet_length = 0;
 

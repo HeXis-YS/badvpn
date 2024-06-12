@@ -81,7 +81,6 @@ LOCAL_SRC_FILES := \
 	badvpn/lwip/src/core/tcp_out.c \
 	badvpn/lwip/src/core/timeouts.c \
 	badvpn/lwip/src/core/udp.c \
-	badvpn/socks_udp_client/SocksUdpClient.c \
 	badvpn/socksclient/BSocksClient.c \
 	badvpn/system/BConnection_common.c \
 	badvpn/system/BConnection_unix.c \
