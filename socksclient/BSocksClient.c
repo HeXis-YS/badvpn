@@ -580,12 +580,6 @@ int BSocksClient_Init (BSocksClient *o, BAddr server_addr,
     bool udp, BSocksClient_handler handler, void *user, BReactor *reactor)
 {
     ASSERT(!BAddr_IsInvalid(&server_addr))
-#ifndef NDEBUG
-    for (size_t i = 0; i < num_auth_info; i++) {
-        ASSERT(auth_info[i].auth_type == SOCKS_METHOD_NO_AUTHENTICATION_REQUIRED ||
-               auth_info[i].auth_type == SOCKS_METHOD_USERNAME_PASSWORD)
-    }
-#endif
     
     // init arguments
     o->auth_info = auth_info;

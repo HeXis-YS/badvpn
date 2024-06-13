@@ -51,10 +51,6 @@ void BufferWriter_Init (BufferWriter *o, int mtu, BPendingGroup *pg)
     o->out_have = 0;
     
     DebugObject_Init(&o->d_obj);
-    #ifndef NDEBUG
-    o->d_mtu = mtu;
-    o->d_writing = 0;
-    #endif
 }
 
 void BufferWriter_Free (BufferWriter *o)
@@ -85,10 +81,6 @@ int BufferWriter_StartPacket (BufferWriter *o, uint8_t **buf)
         *buf = o->out;
     }
     
-    #ifndef NDEBUG
-    o->d_writing = 1;
-    #endif
-    
     return 1;
 }
 
@@ -105,8 +97,4 @@ void BufferWriter_EndPacket (BufferWriter *o, int len)
     
     // finish packet
     PacketRecvInterface_Done(&o->recv_interface, len);
-    
-    #ifndef NDEBUG
-    o->d_writing = 0;
-    #endif
 }

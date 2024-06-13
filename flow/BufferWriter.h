@@ -50,10 +50,6 @@ typedef struct {
     int out_have;
     uint8_t *out;
     DebugObject d_obj;
-    #ifndef NDEBUG
-    int d_mtu;
-    int d_writing;
-    #endif
 } BufferWriter;
 
 /**

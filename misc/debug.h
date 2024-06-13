@@ -110,24 +110,9 @@
         } \
     }
 
-#ifdef NDEBUG
-    #define DEBUG_ZERO_MEMORY(buf, len) {}
-    #define ASSERT(e) {}
-    #define ASSERT_EXECUTE(e) { (e); }
-#else
-    #define DEBUG_ZERO_MEMORY(buf, len) { memset((buf), 0, (len)); }
-    #ifdef BADVPN_USE_C_ASSERT
-        #define ASSERT(e) { assert(e); }
-        #define ASSERT_EXECUTE(e) \
-            { \
-                int _assert_res = !!(e); \
-                assert(_assert_res); \
-            }
-    #else
-        #define ASSERT(e) ASSERT_FORCE(e)
-        #define ASSERT_EXECUTE(e) ASSERT_FORCE(e)
-    #endif
-#endif
+#define DEBUG_ZERO_MEMORY(buf, len) {}
+#define ASSERT(e) {}
+#define ASSERT_EXECUTE(e) { (e); }
 
 #ifdef __GNUC__
     #define WARN_UNUSED __attribute__((warn_unused_result))

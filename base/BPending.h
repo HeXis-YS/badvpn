@@ -83,9 +83,6 @@ typedef struct BSmallPending_s {
     BPending_handler handler;
     void *user;
     BPending__ListNode pending_node; // optimization: if not pending, .next is this
-#ifndef NDEBUG
-    uint8_t pending;
-#endif
     DebugObject d_obj;
 } BSmallPending;
 

@@ -54,9 +54,6 @@ typedef int64_t btime_t;
 #define BTIME_MIN INT64_MIN
 
 struct _BTime_global {
-    #ifndef NDEBUG
-    int initialized; // initialized statically
-    #endif
     #if defined(BADVPN_EMSCRIPTEN)
     btime_t start_time;
     #else
@@ -91,10 +88,6 @@ static void BTime_Init (void)
         btime_global.use_gettimeofday = 0;
     }
     
-    #endif
-    
-    #ifndef NDEBUG
-    btime_global.initialized = 1;
     #endif
 }
 

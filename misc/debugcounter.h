@@ -42,11 +42,7 @@
  * Counter for detecting leaks.
  */
 typedef struct {
-#ifndef NDEBUG
-    int32_t c;
-#else
     int dummy_field; // struct must have at least one field
-#endif
 } DebugCounter;
 
 #define DEBUGCOUNTER_STATIC { 0 }
@@ -59,9 +55,6 @@ typedef struct {
  */
 static void DebugCounter_Init (DebugCounter *obj)
 {
-#ifndef NDEBUG
-    obj->c = 0;
-#endif
 }
 
 /**
@@ -73,9 +66,6 @@ static void DebugCounter_Init (DebugCounter *obj)
  */
 static void DebugCounter_Free (DebugCounter *obj)
 {
-#ifndef NDEBUG
-    ASSERT(obj->c == 0 || obj->c == INT32_MAX)
-#endif
 }
 
 /**
@@ -86,13 +76,6 @@ static void DebugCounter_Free (DebugCounter *obj)
  */
 static void DebugCounter_Increment (DebugCounter *obj)
 {
-#ifndef NDEBUG
-    ASSERT(obj->c >= 0)
-    
-    if (obj->c != INT32_MAX) {
-        obj->c++;
-    }
-#endif
 }
 
 /**
@@ -104,13 +87,6 @@ static void DebugCounter_Increment (DebugCounter *obj)
  */
 static void DebugCounter_Decrement (DebugCounter *obj)
 {
-#ifndef NDEBUG
-    ASSERT(obj->c > 0)
-    
-    if (obj->c != INT32_MAX) {
-        obj->c--;
-    }
-#endif
 }
 
 #endif

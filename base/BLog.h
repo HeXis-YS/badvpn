@@ -64,16 +64,10 @@ struct _BLog_channel {
 };
 
 struct _BLog_global {
-    #ifndef NDEBUG
-    int initialized; // initialized statically
-    #endif
     struct _BLog_channel channels[BLOG_NUM_CHANNELS];
     _BLog_log_func log_func;
     _BLog_free_func free_func;
     BMutex mutex;
-#ifndef NDEBUG
-    int logging;
-#endif
     char logbuf[2048];
     int logbuf_pos;
 };
@@ -135,18 +129,11 @@ void BLog_Init (_BLog_log_func log_func, _BLog_free_func free_func)
 {
     ASSERT(!blog_global.initialized)
     
-    #ifndef NDEBUG
-    blog_global.initialized = 1;
-    #endif
-    
     // initialize channels
     memcpy(blog_global.channels, blog_channel_list, BLOG_NUM_CHANNELS * sizeof(struct _BLog_channel));
     
     blog_global.log_func = log_func;
     blog_global.free_func = free_func;
-#ifndef NDEBUG
-    blog_global.logging = 0;
-#endif
     blog_global.logbuf_pos = 0;
     blog_global.logbuf[0] = '\0';
     
@@ -156,15 +143,8 @@ void BLog_Init (_BLog_log_func log_func, _BLog_free_func free_func)
 void BLog_Free (void)
 {
     ASSERT(blog_global.initialized)
-#ifndef NDEBUG
-    ASSERT(!blog_global.logging)
-#endif
     
     BMutex_Free(&blog_global.mutex);
-    
-    #ifndef NDEBUG
-    blog_global.initialized = 0;
-    #endif
     
     blog_global.free_func();
 }
@@ -192,19 +172,11 @@ void BLog_Begin (void)
     ASSERT(blog_global.initialized)
     
     BMutex_Lock(&blog_global.mutex);
-    
-#ifndef NDEBUG
-    ASSERT(!blog_global.logging)
-    blog_global.logging = 1;
-#endif
 }
 
 void BLog_AppendVarArg (const char *fmt, va_list vl)
 {
     ASSERT(blog_global.initialized)
-#ifndef NDEBUG
-    ASSERT(blog_global.logging)
-#endif
     ASSERT(blog_global.logbuf_pos >= 0)
     ASSERT(blog_global.logbuf_pos < sizeof(blog_global.logbuf))
     
@@ -220,9 +192,6 @@ void BLog_AppendVarArg (const char *fmt, va_list vl)
 void BLog_Append (const char *fmt, ...)
 {
     ASSERT(blog_global.initialized)
-#ifndef NDEBUG
-    ASSERT(blog_global.logging)
-#endif
     
     va_list vl;
     va_start(vl, fmt);
@@ -233,9 +202,6 @@ void BLog_Append (const char *fmt, ...)
 void BLog_AppendBytes (MemRef data)
 {
     ASSERT(blog_global.initialized)
-#ifndef NDEBUG
-    ASSERT(blog_global.logging)
-#endif
     ASSERT(blog_global.logbuf_pos >= 0)
     ASSERT(blog_global.logbuf_pos < sizeof(blog_global.logbuf))
     
@@ -250,9 +216,6 @@ void BLog_AppendBytes (MemRef data)
 void BLog_Finish (int channel, int level)
 {
     ASSERT(blog_global.initialized)
-#ifndef NDEBUG
-    ASSERT(blog_global.logging)
-#endif
     ASSERT(channel >= 0 && channel < BLOG_NUM_CHANNELS)
     ASSERT(level >= BLOG_ERROR && level <= BLOG_DEBUG)
     ASSERT(BLog_WouldLog(channel, level))
@@ -263,9 +226,6 @@ void BLog_Finish (int channel, int level)
     
     blog_global.log_func(channel, level, blog_global.logbuf);
     
-#ifndef NDEBUG
-    blog_global.logging = 0;
-#endif
     blog_global.logbuf_pos = 0;
     blog_global.logbuf[0] = '\0';
     

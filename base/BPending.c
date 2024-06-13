@@ -78,9 +78,6 @@ void BPendingGroup_ExecuteJob (BPendingGroup *g)
     
     // set not pending
     BPending__ListMarkRemoved(p);
-#ifndef NDEBUG
-    p->pending = 0;
-#endif
     
     // execute job
     p->handler(p->user);
@@ -102,9 +99,6 @@ void BSmallPending_Init (BSmallPending *o, BPendingGroup *g, BSmallPending_handl
     
     // set not pending
     BPending__ListMarkRemoved(o);
-#ifndef NDEBUG
-    o->pending = 0;
-#endif
     
     // increment pending counter
     DebugCounter_Increment(&g->pending_ctr);
@@ -146,11 +140,6 @@ void BSmallPending_Set (BSmallPending *o, BPendingGroup *g)
     
     // insert to jobs list
     BPending__List_Prepend(&g->jobs, o);
-    
-    // set pending
-#ifndef NDEBUG
-    o->pending = 1;
-#endif
 }
 
 void BSmallPending_Unset (BSmallPending *o, BPendingGroup *g)
@@ -164,9 +153,6 @@ void BSmallPending_Unset (BSmallPending *o, BPendingGroup *g)
         
         // set not pending
         BPending__ListMarkRemoved(o);
-#ifndef NDEBUG
-        o->pending = 0;
-#endif
     }
 }
 
