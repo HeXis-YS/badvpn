@@ -30,104 +30,118 @@
 #ifndef LWIP_CUSTOM_LWIPOPTS_H
 #define LWIP_CUSTOM_LWIPOPTS_H
 
-// Platform specific locking
-#define SYS_LIGHTWEIGHT_PROT 0
+// Infrastructure
+// NO_SYS
 #define NO_SYS 1
-
-// Memory options
-#define MEM_ALIGNMENT 4U
+// Timers
+#define LWIP_TIMERS 0
+// Heap and memory pools
 #define MEM_LIBC_MALLOC 1
 #define MEMP_MEM_MALLOC 1
-
-// Internal Memory Pool Sizes
+#define MEM_ALIGNMENT 4U
+#define MEMP_OVERFLOW_CHECK 0
+#define MEMP_SANITY_CHECK 0
+// Internal memory pools
 #define MEMP_NUM_PBUF 1024
-// #define MEMP_NUM_UDP_PCB 1024
 #define MEMP_NUM_TCP_PCB 4096
 #define MEMP_NUM_TCP_PCB_LISTEN 16
 #define MEMP_NUM_TCP_SEG 8192
-#define PBUF_POOL_SIZE 32
+// Checksum
+#define CHECKSUM_CHECK_IP 0
+#define CHECKSUM_CHECK_TCP 0
+#define CHECKSUM_CHECK_ICMP6 0
+#define LWIP_CHECKSUM_ON_COPY 1
 
-// ARP options
+
+// IPv4
+#define LWIP_IPV4 1
+#define IP_FORWARD 0
+#define IP_REASSEMBLY 0
+#define IP_FRAG 0
+// ARP
 #define LWIP_ARP 0
-#define ARP_QUEUEING 0
-
-// IPv6 options
-#define LWIP_IPV6 1
-#define LWIP_IPV6_MLD 0
-#define LWIP_IPV6_AUTOCONFIG 0
-#ifdef __LP64__
-#define IPV6_FRAG_COPYHEADER 1
-#endif
-
-// ICMP options
-#define LWIP_ICMP 1
-
-// RAW options
-#define LWIP_RAW 0
-
-// DHCP options
+// ICMP
+#define LWIP_ICMP 0
+// DHCP
 #define LWIP_DHCP 0
-
-// AUTOIP options
+// AUTOIP
 #define LWIP_AUTOIP 0
-
-// SNMP options
-#define LWIP_SNMP 0
-
-// IGMP options
+// IGMP
 #define LWIP_IGMP 0
 
-// DNS options
+
+// IPv6
+#define LWIP_IPV6 1
+#define LWIP_IPV6_AUTOCONFIG 0
+#define LWIP_IPV6_FRAG 0
+#define LWIP_IPV6_REASS 0
+// ICMP6
+#define LWIP_ICMP6 1
+// Multicast listener discovery
+#define LWIP_IPV6_MLD 0
+// DHCPv6
+#define LWIP_IPV6_DHCP6 0
+
+
+// Callback-style APIs
+#define LWIP_CALLBACK_API 1
+// RAW
+#define LWIP_RAW 0
+// DNS
 #define LWIP_DNS 0
-
-// UDP options
-#define LWIP_UDP 0
-#define LWIP_UDPLITE 0
-
-// TCP options
+// TCP
 #define LWIP_TCP 1
 #define TCP_MSS 8191
 #define TCP_WND (8 * TCP_MSS)
 #define TCP_SND_BUF (8 * TCP_MSS)
 #define TCP_SND_QUEUELEN ((128 * (TCP_SND_BUF) + (TCP_MSS - 1))/(TCP_MSS))
+// UDP
+#define LWIP_UDP 0
 
-// Sequential layer options
+
+// Thread-safe APIs
+// Netconn
 #define LWIP_NETCONN 0
-
-// Socket options
+// Sockets
 #define LWIP_SOCKET 0
 
-// PPP options
-#define PPP_SUPPORT 0
 
-// Checksum options
-#define CHECKSUM_CHECK_IP 0
-#define CHECKSUM_CHECK_UDP 0
-#define CHECKSUM_CHECK_TCP 0
-#define CHECKSUM_CHECK_ICMP 0
-#define CHECKSUM_CHECK_ICMP6 0
-#define LWIP_CHECKSUM_ON_COPY 1
+// PBUF
+#define PBUF_POOL_SIZE 32
 
 
-#define LWIP_TIMERS 0
-
-#define IP_FORWARD 0
-#define LWIP_CALLBACK_API 1
+// NETIF
 #define LWIP_NETIF_API 0
-#define LWIP_NETIF_LOOPBACK 0
+// Loopback interface
 #define LWIP_HAVE_LOOPIF 0
-#define LWIP_HAVE_SLIPIF 0
+#define LWIP_NETIF_LOOPBACK 0
 
+
+// Debugging
+// #define LWIP_DEBUG 1
+// Assertion handling
+#define LWIP_NOASSERT
+// Performance
 #define LWIP_PERF 0
-#define LWIP_DONT_PROVIDE_BYTEORDER_FUNCTIONS
+// Statistics
+#define LWIP_STATS 0
+// Debug messages
+// #define IP_DEBUG LWIP_DBG_ON
+// #define NETIF_DEBUG LWIP_DBG_ON
+// #define TCP_DEBUG LWIP_DBG_ON
+// #define TCP_INPUT_DEBUG LWIP_DBG_ON
+// #define TCP_OUTPUT_DEBUG LWIP_DBG_ON
 
-/*
-#define LWIP_DEBUG 1
-#define IP_DEBUG LWIP_DBG_ON
-#define NETIF_DEBUG LWIP_DBG_ON
-#define TCP_DEBUG LWIP_DBG_ON
-#define TCP_INPUT_DEBUG LWIP_DBG_ON
-#define TCP_OUTPUT_DEBUG LWIP_DBG_ON
-*/
+
+// Platform specific locking
+#define SYS_LIGHTWEIGHT_PROT 0
+//
+#define LWIP_DONT_PROVIDE_BYTEORDER_FUNCTIONS
+// SNMP
+#define LWIP_SNMP 0
+// PPP
+#define PPP_SUPPORT 0
+//
+#define LWIP_HAVE_SLIPIF 0
 
 #endif
