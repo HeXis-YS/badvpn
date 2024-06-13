@@ -27,14 +27,8 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef BADVPN_USE_WINAPI
-#include <windows.h>
-#include <winsock2.h>
-#include <mswsock.h>
-#else
 #include <string.h>
 #include <signal.h>
-#endif
 
 #include <misc/debug.h>
 #include <base/BLog.h>
@@ -53,21 +47,6 @@ int BNetwork_GlobalInit (void)
 {
     ASSERT(!bnetwork_initialized)
     
-#ifdef BADVPN_USE_WINAPI
-    
-    WORD requested = MAKEWORD(2, 2);
-    WSADATA wsadata;
-    if (WSAStartup(requested, &wsadata) != 0) {
-        BLog(BLOG_ERROR, "WSAStartup failed");
-        goto fail0;
-    }
-    if (wsadata.wVersion != requested) {
-        BLog(BLOG_ERROR, "WSAStartup returned wrong version");
-        goto fail1;
-    }
-    
-#else
-    
     struct sigaction act;
     memset(&act, 0, sizeof(act));
     act.sa_handler = SIG_IGN;
@@ -78,16 +57,9 @@ int BNetwork_GlobalInit (void)
         goto fail0;
     }
     
-#endif
-    
     bnetwork_initialized = 1;
     
     return 1;
-    
-#ifdef BADVPN_USE_WINAPI
-fail1:
-    WSACleanup();
-#endif
     
 fail0:
     return 0;

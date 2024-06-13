@@ -34,9 +34,7 @@
 #ifndef BADVPN_SYSTEM_BTIME_H
 #define BADVPN_SYSTEM_BTIME_H
 
-#if defined(BADVPN_USE_WINAPI)
-#include <windows.h>
-#elif defined(BADVPN_EMSCRIPTEN)
+#if defined(BADVPN_EMSCRIPTEN)
 #include <emscripten/emscripten.h>
 #else
 #include <time.h>
@@ -59,9 +57,7 @@ struct _BTime_global {
     #ifndef NDEBUG
     int initialized; // initialized statically
     #endif
-    #if defined(BADVPN_USE_WINAPI)
-    LARGE_INTEGER start_time;
-    #elif defined(BADVPN_EMSCRIPTEN)
+    #if defined(BADVPN_EMSCRIPTEN)
     btime_t start_time;
     #else
     btime_t start_time;
@@ -75,11 +71,7 @@ static void BTime_Init (void)
 {
     ASSERT(!btime_global.initialized)
     
-    #if defined(BADVPN_USE_WINAPI)
-    
-    ASSERT_FORCE(QueryPerformanceCounter(&btime_global.start_time))
-    
-    #elif defined(BADVPN_EMSCRIPTEN)
+    #if defined(BADVPN_EMSCRIPTEN)
     
     btime_global.start_time = emscripten_get_now();
     
@@ -110,15 +102,7 @@ static btime_t btime_gettime (void)
 {
     ASSERT(btime_global.initialized)
     
-    #if defined(BADVPN_USE_WINAPI)
-    
-    LARGE_INTEGER count;
-    LARGE_INTEGER freq;
-    ASSERT_FORCE(QueryPerformanceCounter(&count))
-    ASSERT_FORCE(QueryPerformanceFrequency(&freq))
-    return (((count.QuadPart - btime_global.start_time.QuadPart) * 1000) / freq.QuadPart);
-    
-    #elif defined(BADVPN_EMSCRIPTEN)
+    #if defined(BADVPN_EMSCRIPTEN)
     
     return (btime_t)emscripten_get_now() - btime_global.start_time;
     

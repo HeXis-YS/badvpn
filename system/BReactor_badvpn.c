@@ -31,16 +31,10 @@
 #include <string.h>
 #include <stdio.h>
 #include <stddef.h>
-
-#ifdef BADVPN_USE_WINAPI
-#include <windows.h>
-#else
 #include <limits.h>
 #include <sys/types.h>
 #include <errno.h>
 #include <unistd.h>
-#endif
-
 #include <misc/debug.h>
 #include <misc/offset.h>
 #include <misc/balloc.h>
@@ -146,26 +140,6 @@ static void move_first_timers (BReactor *bsys)
         timer->state = TIMER_STATE_EXPIRED;
     }
 }
-
-#ifdef BADVPN_USE_WINAPI
-
-static void set_iocp_ready (BReactorIOCPOverlapped *olap, int succeeded, DWORD bytes)
-{
-    BReactor *reactor = olap->reactor;
-    ASSERT(!olap->is_ready)
-    
-    // set parameters
-    olap->ready_succeeded = succeeded;
-    olap->ready_bytes = bytes;
-    
-    // insert to IOCP ready list
-    LinkedList1_Append(&reactor->iocp_ready_list, &olap->ready_list_node);
-    
-    // set ready
-    olap->is_ready = 1;
-}
-
-#endif
 
 #ifdef BADVPN_USE_EPOLL
 
@@ -275,9 +249,6 @@ static void wait_for_events (BReactor *bsys)
     // must have processed all pending events
     ASSERT(!BPendingGroup_HasJobs(&bsys->pending_jobs))
     ASSERT(LinkedList1_IsEmpty(&bsys->timers_expired_list))
-    #ifdef BADVPN_USE_WINAPI
-    ASSERT(LinkedList1_IsEmpty(&bsys->iocp_ready_list))
-    #endif
     #ifdef BADVPN_USE_EPOLL
     ASSERT(bsys->epoll_results_pos == bsys->epoll_results_num)
     #endif
@@ -341,39 +312,6 @@ static void wait_for_events (BReactor *bsys)
         }
         
         // perform wait
-        
-        #ifdef BADVPN_USE_WINAPI
-        
-        if (have_timeout) {
-            if (timeout_rel_trunc > INFINITE - 1) {
-                timeout_rel_trunc = INFINITE - 1;
-            }
-        }
-        
-        DWORD bytes = 0;
-        ULONG_PTR key;
-        BReactorIOCPOverlapped *olap = NULL;
-        BOOL res = GetQueuedCompletionStatus(bsys->iocp_handle, &bytes, &key, (OVERLAPPED **)&olap, (have_timeout ? timeout_rel_trunc : INFINITE));
-        
-        ASSERT_FORCE(olap || have_timeout)
-        
-        if (olap || timeout_rel_trunc == timeout_rel) {
-            if (olap) {
-                BLog(BLOG_DEBUG, "GetQueuedCompletionStatus returned event");
-                
-                DebugObject_Access(&olap->d_obj);
-                ASSERT(olap->reactor == bsys)
-                ASSERT(!olap->is_ready)
-                
-                set_iocp_ready(olap, (res == TRUE), bytes);
-            } else {
-                BLog(BLOG_DEBUG, "GetQueuedCompletionStatus timed out");
-                move_first_timers(bsys);
-            }
-            break;
-        }
-        
-        #endif
         
         #ifdef BADVPN_USE_EPOLL
         
@@ -549,8 +487,6 @@ static void wait_for_events (BReactor *bsys)
     }
 }
 
-#ifndef BADVPN_USE_WINAPI
-
 void BFileDescriptor_Init (BFileDescriptor *bs, int fd, BFileDescriptor_handler handler, void *user)
 {
     bs->fd = fd;
@@ -558,8 +494,6 @@ void BFileDescriptor_Init (BFileDescriptor *bs, int fd, BFileDescriptor_handler 
     bs->user = user;
     bs->active = 0;
 }
-
-#endif
 
 void BSmallTimer_Init (BSmallTimer *bt, BSmallTimer_handler handler)
 {
@@ -605,22 +539,6 @@ int BReactor_Init (BReactor *bsys)
     
     // init limits
     LinkedList1_Init(&bsys->active_limits_list);
-    
-    #ifdef BADVPN_USE_WINAPI
-    
-    // init IOCP list
-    LinkedList1_Init(&bsys->iocp_list);
-    
-    // init IOCP handle
-    if (!(bsys->iocp_handle = CreateIoCompletionPort(INVALID_HANDLE_VALUE, NULL, 0, 1))) {
-        BLog(BLOG_ERROR, "CreateIoCompletionPort failed");
-        goto fail0;
-    }
-    
-    // init IOCP ready list
-    LinkedList1_Init(&bsys->iocp_ready_list);
-    
-    #endif
     
     #ifdef BADVPN_USE_EPOLL
     
@@ -675,9 +593,7 @@ int BReactor_Init (BReactor *bsys)
     #endif
     
     DebugObject_Init(&bsys->d_obj);
-    #ifndef BADVPN_USE_WINAPI
     DebugCounter_Init(&bsys->d_fds_counter);
-    #endif
     #ifdef BADVPN_USE_KEVENT
     DebugCounter_Init(&bsys->d_kevent_ctr);
     #endif
@@ -699,27 +615,13 @@ void BReactor_Free (BReactor *bsys)
 {
     DebugObject_Access(&bsys->d_obj);
     
-    #ifdef BADVPN_USE_WINAPI
-    while (!LinkedList1_IsEmpty(&bsys->iocp_list)) {
-        BReactorIOCPOverlapped *olap = UPPER_OBJECT(LinkedList1_GetLast(&bsys->iocp_list), BReactorIOCPOverlapped, iocp_list_node);
-        ASSERT(olap->reactor == bsys)
-        olap->handler(olap->user, BREACTOR_IOCP_EVENT_EXITING, 0);
-    }
-    #endif
-    
     // {pending group has no BPending objects}
     ASSERT(!BPendingGroup_HasJobs(&bsys->pending_jobs))
     ASSERT(BReactor__TimersTree_IsEmpty(&bsys->timers_tree))
     ASSERT(LinkedList1_IsEmpty(&bsys->timers_expired_list))
     ASSERT(LinkedList1_IsEmpty(&bsys->active_limits_list))
     DebugObject_Free(&bsys->d_obj);
-    #ifdef BADVPN_USE_WINAPI
-    ASSERT(LinkedList1_IsEmpty(&bsys->iocp_ready_list))
-    ASSERT(LinkedList1_IsEmpty(&bsys->iocp_list))
-    #endif
-    #ifndef BADVPN_USE_WINAPI
     DebugCounter_Free(&bsys->d_fds_counter);
-    #endif
     #ifdef BADVPN_USE_KEVENT
     DebugCounter_Free(&bsys->d_kevent_ctr);
     #endif
@@ -730,13 +632,6 @@ void BReactor_Free (BReactor *bsys)
     #endif
     
     BLog(BLOG_DEBUG, "Reactor freeing");
-    
-    #ifdef BADVPN_USE_WINAPI
-    
-    // close IOCP handle
-    ASSERT_FORCE(CloseHandle(bsys->iocp_handle))
-    
-    #endif
     
     #ifdef BADVPN_USE_EPOLL
     
@@ -797,28 +692,6 @@ int BReactor_Exec (BReactor *bsys)
             }
             continue;
         }
-        
-        #ifdef BADVPN_USE_WINAPI
-        
-        if (!LinkedList1_IsEmpty(&bsys->iocp_ready_list)) {
-            BReactorIOCPOverlapped *olap = UPPER_OBJECT(LinkedList1_GetFirst(&bsys->iocp_ready_list), BReactorIOCPOverlapped, ready_list_node);
-            ASSERT(olap->is_ready)
-            ASSERT(olap->handler)
-            
-            // remove from ready list
-            LinkedList1_Remove(&bsys->iocp_ready_list, &olap->ready_list_node);
-            
-            // set not ready
-            olap->is_ready = 0;
-            
-            int event = (olap->ready_succeeded ? BREACTOR_IOCP_EVENT_SUCCEEDED : BREACTOR_IOCP_EVENT_FAILED);
-            
-            // call handler
-            olap->handler(olap->user, event, olap->ready_bytes);
-            continue;
-        }
-        
-        #endif
         
         #ifdef BADVPN_USE_EPOLL
         
@@ -1084,8 +957,6 @@ int BReactor_Synchronize (BReactor *bsys, BSmallPending *ref)
     return 0;
 }
 
-#ifndef BADVPN_USE_WINAPI
-
 int BReactor_AddFileDescriptor (BReactor *bsys, BFileDescriptor *bs)
 {
     ASSERT(!bs->active)
@@ -1235,8 +1106,6 @@ void BReactor_SetFileDescriptorEvents (BReactor *bsys, BFileDescriptor *bs, int 
     bs->waitEvents = events;
 }
 
-#endif
-
 void BReactorLimit_Init (BReactorLimit *o, BReactor *reactor, int limit)
 {
     DebugObject_Access(&reactor->d_obj);
@@ -1354,90 +1223,6 @@ void BReactorKEvent_Free (BReactorKEvent *o)
     event.filter = o->filter;
     event.flags = EV_DELETE;
     ASSERT_FORCE(kevent(reactor->kqueue_fd, &event, 1, NULL, 0, NULL) == 0)
-}
-
-#endif
-
-#ifdef BADVPN_USE_WINAPI
-
-HANDLE BReactor_GetIOCPHandle (BReactor *reactor)
-{
-    DebugObject_Access(&reactor->d_obj);
-    
-    return reactor->iocp_handle;
-}
-
-void BReactorIOCPOverlapped_Init (BReactorIOCPOverlapped *o, BReactor *reactor, void *user, BReactorIOCPOverlapped_handler handler)
-{
-    DebugObject_Access(&reactor->d_obj);
-    
-    // init arguments
-    o->reactor = reactor;
-    o->user = user;
-    o->handler = handler;
-    
-    // zero overlapped
-    memset(&o->olap, 0, sizeof(o->olap));
-    
-    // append to IOCP list
-    LinkedList1_Append(&reactor->iocp_list, &o->iocp_list_node);
-    
-    // set not ready
-    o->is_ready = 0;
-    
-    DebugObject_Init(&o->d_obj);
-}
-
-void BReactorIOCPOverlapped_Free (BReactorIOCPOverlapped *o)
-{
-    BReactor *reactor = o->reactor;
-    DebugObject_Free(&o->d_obj);
-    
-    // remove from IOCP ready list
-    if (o->is_ready) {
-        LinkedList1_Remove(&reactor->iocp_ready_list, &o->ready_list_node);
-    }
-    
-    // remove from IOCP list
-    LinkedList1_Remove(&reactor->iocp_list, &o->iocp_list_node);
-}
-
-void BReactorIOCPOverlapped_Wait (BReactorIOCPOverlapped *o, int *out_succeeded, DWORD *out_bytes)
-{
-    BReactor *reactor = o->reactor;
-    DebugObject_Access(&o->d_obj);
-    
-    // wait for IOCP events until we get an event for this olap
-    while (!o->is_ready) {
-        DWORD bytes = 0;
-        ULONG_PTR key;
-        BReactorIOCPOverlapped *olap = NULL;
-        BOOL res = GetQueuedCompletionStatus(reactor->iocp_handle, &bytes, &key, (OVERLAPPED **)&olap, INFINITE);
-        
-        ASSERT_FORCE(olap)
-        DebugObject_Access(&olap->d_obj);
-        ASSERT(olap->reactor == reactor)
-        
-        // regular I/O should be done synchronously, so we shoudln't ever get a second completion before an
-        // existing one is dispatched. If however PostQueuedCompletionStatus is being used to signal events,
-        // just discard any excess events.
-        if (!olap->is_ready) {
-            set_iocp_ready(olap, (res == TRUE), bytes);
-        }
-    }
-    
-    // remove from IOCP ready list
-    LinkedList1_Remove(&reactor->iocp_ready_list, &o->ready_list_node);
-    
-    // set not ready
-    o->is_ready = 0;
-    
-    if (out_succeeded) {
-        *out_succeeded = o->ready_succeeded;
-    }
-    if (out_bytes) {
-        *out_bytes = o->ready_bytes;
-    }
 }
 
 #endif

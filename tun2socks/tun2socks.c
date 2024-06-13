@@ -66,9 +66,7 @@
 #include <lwip/ip6_frag.h>
 #include <tun2socks/SocksUdpGwClient.h>
 
-#ifndef BADVPN_USE_WINAPI
 #include <base/BLog_syslog.h>
-#endif
 
 #include <tun2socks/tun2socks.h>
 
@@ -179,10 +177,8 @@ struct {
     int help;
     int version;
     int logger;
-    #ifndef BADVPN_USE_WINAPI
     char *logger_syslog_facility;
     char *logger_syslog_ident;
-    #endif
     int loglevel;
     int loglevels[BLOG_NUM_CHANNELS];
     char *netif_ipaddr;
@@ -502,14 +498,12 @@ int main (int argc, char **argv)
         case LOGGER_STDOUT:
             BLog_InitStdout();
             break;
-        #ifndef BADVPN_USE_WINAPI
         case LOGGER_SYSLOG:
             if (!BLog_InitSyslog(options.logger_syslog_ident, options.logger_syslog_facility)) {
                 fprintf(stderr, "Failed to initialize syslog logger\n");
                 goto fail0;
             }
             break;
-        #endif
         default:
             ASSERT(0);
     }
@@ -748,12 +742,10 @@ void print_help (const char *name)
         "        [--help]\n"
         "        [--version]\n"
         "        [--logger <"LOGGERS_STRING">]\n"
-        #ifndef BADVPN_USE_WINAPI
         "        (logger=syslog?\n"
         "            [--syslog-facility <string>]\n"
         "            [--syslog-ident <string>]\n"
         "        )\n"
-        #endif
         "        [--loglevel <0-5/none/error/warning/notice/info/debug>]\n"
         "        [--channel-loglevel <channel-name> <0-5/none/error/warning/notice/info/debug>] ...\n"
 #ifdef __ANDROID__
@@ -802,10 +794,8 @@ int parse_arguments (int argc, char *argv[])
     options.help = 0;
     options.version = 0;
     options.logger = LOGGER_STDOUT;
-    #ifndef BADVPN_USE_WINAPI
     options.logger_syslog_facility = "daemon";
     options.logger_syslog_ident = argv[0];
-    #endif
     options.loglevel = -1;
     for (int i = 0; i < BLOG_NUM_CHANNELS; i++) {
         options.loglevels[i] = -1;
@@ -849,18 +839,15 @@ int parse_arguments (int argc, char *argv[])
             if (!strcmp(arg2, "stdout")) {
                 options.logger = LOGGER_STDOUT;
             }
-            #ifndef BADVPN_USE_WINAPI
             else if (!strcmp(arg2, "syslog")) {
                 options.logger = LOGGER_SYSLOG;
             }
-            #endif
             else {
                 fprintf(stderr, "%s: wrong argument\n", arg);
                 return 0;
             }
             i++;
         }
-        #ifndef BADVPN_USE_WINAPI
         else if (!strcmp(arg, "--syslog-facility")) {
             if (1 >= argc - i) {
                 fprintf(stderr, "%s: requires an argument\n", arg);
@@ -877,7 +864,6 @@ int parse_arguments (int argc, char *argv[])
             options.logger_syslog_ident = argv[i + 1];
             i++;
         }
-        #endif
         else if (!strcmp(arg, "--loglevel")) {
             if (1 >= argc - i) {
                 fprintf(stderr, "%s: requires an argument\n", arg);

@@ -39,16 +39,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
-
-#ifdef BADVPN_USE_WINAPI
-#include <ws2tcpip.h>
-#else
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netdb.h>
 #include <netinet/in.h>
-#endif
-
 #include <misc/byteorder.h>
 #include <misc/debug.h>
 #include <misc/print_macros.h>
