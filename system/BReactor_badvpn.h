@@ -35,18 +35,12 @@
 #ifndef BADVPN_SYSTEM_BREACTOR_H
 #define BADVPN_SYSTEM_BREACTOR_H
 
-#if (defined(BADVPN_USE_EPOLL) + defined(BADVPN_USE_KEVENT) + defined(BADVPN_USE_POLL)) != 1
+#if (defined(BADVPN_USE_EPOLL) + defined(BADVPN_USE_POLL)) != 1
 #error Unknown event backend or too many event backends
 #endif
 
 #ifdef BADVPN_USE_EPOLL
 #include <sys/epoll.h>
-#endif
-
-#ifdef BADVPN_USE_KEVENT
-#include <sys/types.h>
-#include <sys/event.h>
-#include <sys/time.h>
 #endif
 
 #ifdef BADVPN_USE_POLL
@@ -195,11 +189,6 @@ typedef struct BFileDescriptor_t {
     struct BFileDescriptor_t **epoll_returned_ptr;
     #endif
     
-    #ifdef BADVPN_USE_KEVENT
-    int kevent_tag;
-    int kevent_last_event;
-    #endif
-    
     #ifdef BADVPN_USE_POLL
     LinkedList1Node poll_enabled_fds_list_node;
     int poll_returned_index;
@@ -248,14 +237,6 @@ typedef struct {
     int epoll_results_pos; // number of events processed so far
     #endif
     
-    #ifdef BADVPN_USE_KEVENT
-    int kqueue_fd;
-    struct kevent kevent_results[BSYSTEM_MAX_RESULTS];
-    int kevent_prev_event[BSYSTEM_MAX_RESULTS];
-    int kevent_results_num;
-    int kevent_results_pos;
-    #endif
-    
     #ifdef BADVPN_USE_POLL
     LinkedList1 poll_enabled_fds_list;
     int poll_num_enabled_fds;
@@ -267,9 +248,6 @@ typedef struct {
     
     DebugObject d_obj;
     DebugCounter d_fds_counter;
-    #ifdef BADVPN_USE_KEVENT
-    DebugCounter d_kevent_ctr;
-    #endif
     DebugCounter d_limits_ctr;
 } BReactor;
 
@@ -500,25 +478,5 @@ int BReactorLimit_Increment (BReactorLimit *o);
  * @param limit new limit. Must be >0.
  */
 void BReactorLimit_SetLimit (BReactorLimit *o, int limit);
-
-#ifdef BADVPN_USE_KEVENT
-
-typedef void (*BReactorKEvent_handler) (void *user, u_int fflags, intptr_t data);
-
-typedef struct {
-    BReactor *reactor;
-    BReactorKEvent_handler handler;
-    void *user;
-    uintptr_t ident;
-    short filter;
-    int kevent_tag;
-    int kevent_last_event;
-    DebugObject d_obj;
-} BReactorKEvent;
-
-int BReactorKEvent_Init (BReactorKEvent *o, BReactor *reactor, BReactorKEvent_handler handler, void *user, uintptr_t ident, short filter, u_int fflags, intptr_t data);
-void BReactorKEvent_Free (BReactorKEvent *o);
-
-#endif
 
 #endif

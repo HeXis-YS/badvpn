@@ -39,13 +39,7 @@
 #include <sys/socket.h>
 #include <net/if.h>
 #include <net/if_arp.h>
-#ifdef BADVPN_LINUX
-    #include <linux/if_tun.h>
-#endif
-#ifdef BADVPN_FREEBSD
-    #include <net/if_tun.h>
-    #include <net/if_tap.h>
-#endif
+#include <linux/if_tun.h>
 
 #include <base/BLog.h>
 
@@ -153,8 +147,6 @@ int BTap_Init2 (BTap *o, BReactor *reactor, struct BTap_init_data init_data, BTa
     o->handler_error = handler_error;
     o->handler_error_user = handler_error_user;
     
-    #if defined(BADVPN_LINUX) || defined(BADVPN_FREEBSD)
-    
     o->close_fd = (init_data.init_type != BTAP_INIT_FD);
     
     switch (init_data.init_type) {
@@ -169,8 +161,6 @@ int BTap_Init2 (BTap *o, BReactor *reactor, struct BTap_init_data init_data, BTa
         
         case BTAP_INIT_STRING: {
             char devname_real[IFNAMSIZ];
-            
-            #ifdef BADVPN_LINUX
             
             // open device
             
@@ -199,43 +189,6 @@ int BTap_Init2 (BTap *o, BReactor *reactor, struct BTap_init_data init_data, BTa
             }
             
             strcpy(devname_real, ifr.ifr_name);
-            
-            #endif
-            
-            #ifdef BADVPN_FREEBSD
-            
-            if (init_data.dev_type == BTAP_DEV_TUN) {
-                BLog(BLOG_ERROR, "TUN not supported on FreeBSD");
-                goto fail0;
-            }
-            
-            if (!init_data.init.string) {
-                BLog(BLOG_ERROR, "no device specified");
-                goto fail0;
-            }
-            
-            // open device
-            
-            char devnode[10 + IFNAMSIZ];
-            snprintf(devnode, sizeof(devnode), "/dev/%s", init_data.init.string);
-            
-            if ((o->fd = open(devnode, O_RDWR)) < 0) {
-                BLog(BLOG_ERROR, "error opening device");
-                goto fail0;
-            }
-            
-            // get name
-            
-            struct ifreq ifr;
-            memset(&ifr, 0, sizeof(ifr));
-            if (ioctl(o->fd, TAPGIFNAME, (void *)&ifr) < 0) {
-                BLog(BLOG_ERROR, "error configuring device");
-                goto fail1;
-            }
-            
-            strcpy(devname_real, ifr.ifr_name);
-            
-            #endif
             
             // get MTU
             
@@ -289,8 +242,6 @@ fail1:
     }
 fail0:
     return 0;
-    
-    #endif
     
 success:
     // init output

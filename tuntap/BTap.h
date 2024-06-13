@@ -34,8 +34,8 @@
 #ifndef BADVPN_TUNTAP_BTAP_H
 #define BADVPN_TUNTAP_BTAP_H
 
-#if (defined(BADVPN_LINUX) + defined(BADVPN_FREEBSD)) != 1
-#error Unknown TAP backend or too many TAP backends
+#ifndef BADVPN_LINUX
+#error BADVPN_LINUX is required
 #endif
 
 #include <stdint.h>

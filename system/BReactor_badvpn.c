@@ -160,75 +160,6 @@ static void set_epoll_fd_pointers (BReactor *bsys)
 
 #endif
 
-#ifdef BADVPN_USE_KEVENT
-
-static void set_kevent_fd_pointers (BReactor *bsys)
-{
-    for (int i = 0; i < bsys->kevent_results_num; i++) {
-        struct kevent *event = &bsys->kevent_results[i];
-        ASSERT(event->udata)
-        
-        int *tag = event->udata;
-        switch (*tag) {
-            case KEVENT_TAG_FD: {
-                BFileDescriptor *bfd = UPPER_OBJECT(tag, BFileDescriptor, kevent_tag);
-                ASSERT(bfd->active)
-                bsys->kevent_prev_event[i] = bfd->kevent_last_event;
-                bfd->kevent_last_event = i;
-            } break;
-            
-            case KEVENT_TAG_KEVENT: {
-                BReactorKEvent *kev = UPPER_OBJECT(tag, BReactorKEvent, kevent_tag);
-                ASSERT(kev->reactor == bsys)
-                bsys->kevent_prev_event[i] = kev->kevent_last_event;
-                kev->kevent_last_event = i;
-            } break;
-            
-            default:
-                ASSERT(0);
-        }
-    }
-}
-
-static void update_kevent_fd_events (BReactor *bsys, BFileDescriptor *bs, int events)
-{
-    struct kevent event;
-    
-    if (!(bs->waitEvents & BREACTOR_READ) && (events & BREACTOR_READ)) {
-        memset(&event, 0, sizeof(event));
-        event.ident = bs->fd;
-        event.filter = EVFILT_READ;
-        event.flags = EV_ADD;
-        event.udata = &bs->kevent_tag;
-        ASSERT_FORCE(kevent(bsys->kqueue_fd, &event, 1, NULL, 0, NULL) == 0)
-    }
-    else if ((bs->waitEvents & BREACTOR_READ) && !(events & BREACTOR_READ)) {
-        memset(&event, 0, sizeof(event));
-        event.ident = bs->fd;
-        event.filter = EVFILT_READ;
-        event.flags = EV_DELETE;
-        ASSERT_FORCE(kevent(bsys->kqueue_fd, &event, 1, NULL, 0, NULL) == 0)
-    }
-    
-    if (!(bs->waitEvents & BREACTOR_WRITE) && (events & BREACTOR_WRITE)) {
-        memset(&event, 0, sizeof(event));
-        event.ident = bs->fd;
-        event.filter = EVFILT_WRITE;
-        event.flags = EV_ADD;
-        event.udata = &bs->kevent_tag;
-        ASSERT_FORCE(kevent(bsys->kqueue_fd, &event, 1, NULL, 0, NULL) == 0)
-    }
-    else if ((bs->waitEvents & BREACTOR_WRITE) && !(events & BREACTOR_WRITE)) {
-        memset(&event, 0, sizeof(event));
-        event.ident = bs->fd;
-        event.filter = EVFILT_WRITE;
-        event.flags = EV_DELETE;
-        ASSERT_FORCE(kevent(bsys->kqueue_fd, &event, 1, NULL, 0, NULL) == 0)
-    }
-}
-
-#endif
-
 #ifdef BADVPN_USE_POLL
 
 static void set_poll_fd_pointers (BReactor *bsys)
@@ -252,9 +183,6 @@ static void wait_for_events (BReactor *bsys)
     #ifdef BADVPN_USE_EPOLL
     ASSERT(bsys->epoll_results_pos == bsys->epoll_results_num)
     #endif
-    #ifdef BADVPN_USE_KEVENT
-    ASSERT(bsys->kevent_results_pos == bsys->kevent_results_num)
-    #endif
     #ifdef BADVPN_USE_POLL
     ASSERT(bsys->poll_results_pos == bsys->poll_results_num)
     #endif
@@ -263,12 +191,6 @@ static void wait_for_events (BReactor *bsys)
     #ifdef BADVPN_USE_EPOLL
     bsys->epoll_results_num = 0;
     bsys->epoll_results_pos = 0;
-    #endif
-    
-    // clean up kevent results
-    #ifdef BADVPN_USE_KEVENT
-    bsys->kevent_results_num = 0;
-    bsys->kevent_results_pos = 0;
     #endif
     
     // clean up poll results
@@ -344,47 +266,6 @@ static void wait_for_events (BReactor *bsys)
                 set_epoll_fd_pointers(bsys);
             } else {
                 BLog(BLOG_DEBUG, "epoll_wait timed out");
-                move_first_timers(bsys);
-            }
-            break;
-        }
-        
-        #endif
-        
-        #ifdef BADVPN_USE_KEVENT
-        
-        struct timespec ts;
-        if (have_timeout) {
-            if (timeout_rel_trunc > 86400000) {
-                timeout_rel_trunc = 86400000;
-            }
-            ts.tv_sec = timeout_rel_trunc / 1000;
-            ts.tv_nsec = (timeout_rel_trunc % 1000) * 1000000;
-        }
-        
-        BLog(BLOG_DEBUG, "Calling kevent");
-        
-        int waitres = kevent(bsys->kqueue_fd, NULL, 0, bsys->kevent_results, BSYSTEM_MAX_RESULTS, (have_timeout ? &ts : NULL));
-        if (waitres < 0) {
-            int error = errno;
-            if (error == EINTR) {
-                BLog(BLOG_DEBUG, "kevent interrupted");
-                goto try_again;
-            }
-            perror("kevent");
-            ASSERT_FORCE(0)
-        }
-        
-        ASSERT_FORCE(!(waitres == 0) || have_timeout)
-        ASSERT_FORCE(waitres <= BSYSTEM_MAX_RESULTS)
-        
-        if (waitres != 0 || timeout_rel_trunc == timeout_rel) {
-            if (waitres != 0) {
-                BLog(BLOG_DEBUG, "kevent returned %d events", waitres);
-                bsys->kevent_results_num = waitres;
-                set_kevent_fd_pointers(bsys);
-            } else {
-                BLog(BLOG_DEBUG, "kevent timed out");
                 move_first_timers(bsys);
             }
             break;
@@ -554,20 +435,6 @@ int BReactor_Init (BReactor *bsys)
     
     #endif
     
-    #ifdef BADVPN_USE_KEVENT
-    
-    // create kqueue fd
-    if ((bsys->kqueue_fd = kqueue()) < 0) {
-        BLog(BLOG_ERROR, "kqueue failed");
-        goto fail0;
-    }
-    
-    // init results array
-    bsys->kevent_results_num = 0;
-    bsys->kevent_results_pos = 0;
-    
-    #endif
-    
     #ifdef BADVPN_USE_POLL
     
     // init enabled fds list
@@ -594,9 +461,6 @@ int BReactor_Init (BReactor *bsys)
     
     DebugObject_Init(&bsys->d_obj);
     DebugCounter_Init(&bsys->d_fds_counter);
-    #ifdef BADVPN_USE_KEVENT
-    DebugCounter_Init(&bsys->d_kevent_ctr);
-    #endif
     DebugCounter_Init(&bsys->d_limits_ctr);
     
     return 1;
@@ -622,9 +486,6 @@ void BReactor_Free (BReactor *bsys)
     ASSERT(LinkedList1_IsEmpty(&bsys->active_limits_list))
     DebugObject_Free(&bsys->d_obj);
     DebugCounter_Free(&bsys->d_fds_counter);
-    #ifdef BADVPN_USE_KEVENT
-    DebugCounter_Free(&bsys->d_kevent_ctr);
-    #endif
     DebugCounter_Free(&bsys->d_limits_ctr);
     #ifdef BADVPN_USE_POLL
     ASSERT(bsys->poll_num_enabled_fds == 0)
@@ -637,13 +498,6 @@ void BReactor_Free (BReactor *bsys)
     
     // close epoll fd
     ASSERT_FORCE(close(bsys->efd) == 0)
-    
-    #endif
-    
-    #ifdef BADVPN_USE_KEVENT
-    
-    // close kqueue fd
-    ASSERT_FORCE(close(bsys->kqueue_fd) == 0)
     
     #endif
     
@@ -738,76 +592,6 @@ int BReactor_Exec (BReactor *bsys)
             BLog(BLOG_DEBUG, "Dispatching file descriptor");
             bfd->handler(bfd->user, events);
             continue;
-        }
-        
-        #endif
-        
-        #ifdef BADVPN_USE_KEVENT
-        
-        // dispatch kevent
-        if (bsys->kevent_results_pos < bsys->kevent_results_num) {
-            // grab event
-            int event_index = bsys->kevent_results_pos;
-            struct kevent *event = &bsys->kevent_results[event_index];
-            bsys->kevent_results_pos++;
-            
-            // check if the event was removed
-            if (!event->udata) {
-                continue;
-            }
-            
-            // check tag
-            int *tag = event->udata;
-            switch (*tag) {
-                case KEVENT_TAG_FD: {
-                    // get BFileDescriptor
-                    BFileDescriptor *bfd = UPPER_OBJECT(tag, BFileDescriptor, kevent_tag);
-                    ASSERT(bfd->active)
-                    
-                    // when we get to the last event for this fd, reset kevent_last_event
-                    if (event_index == bfd->kevent_last_event) {
-                        bfd->kevent_last_event = -1;
-                    }
-                    
-                    // calculate event to report
-                    int events = 0;
-                    if ((bfd->waitEvents&BREACTOR_READ) && event->filter == EVFILT_READ) {
-                        events |= BREACTOR_READ;
-                    }
-                    if ((bfd->waitEvents&BREACTOR_WRITE) && event->filter == EVFILT_WRITE) {
-                        events |= BREACTOR_WRITE;
-                    }
-                    
-                    if (!events) {
-                        BLog(BLOG_ERROR, "no events detected?");
-                        continue;
-                    }
-                    
-                    // call handler
-                    BLog(BLOG_DEBUG, "Dispatching file descriptor");
-                    bfd->handler(bfd->user, events);
-                    continue;
-                } break;
-                
-                case KEVENT_TAG_KEVENT: {
-                    // get BReactorKEvent
-                    BReactorKEvent *kev = UPPER_OBJECT(tag, BReactorKEvent, kevent_tag);
-                    ASSERT(kev->reactor == bsys)
-                    
-                    // when we get to the last event for this fd, reset kevent_last_event
-                    if (event_index == kev->kevent_last_event) {
-                        kev->kevent_last_event = -1;
-                    }
-                    
-                    // call handler
-                    BLog(BLOG_DEBUG, "Dispatching kevent");
-                    kev->handler(kev->user, event->fflags, event->data);
-                    continue;
-                } break;
-                
-                default:
-                    ASSERT(0);
-            }
         }
         
         #endif
@@ -979,16 +763,6 @@ int BReactor_AddFileDescriptor (BReactor *bsys, BFileDescriptor *bs)
     
     #endif
     
-    #ifdef BADVPN_USE_KEVENT
-    
-    // set kevent tag
-    bs->kevent_tag = KEVENT_TAG_FD;
-    
-    // have no events
-    bs->kevent_last_event = -1;
-    
-    #endif
-    
     #ifdef BADVPN_USE_POLL
     
     if (bsys->poll_num_enabled_fds == BSYSTEM_MAX_POLL_FDS) {
@@ -1029,22 +803,6 @@ void BReactor_RemoveFileDescriptor (BReactor *bsys, BFileDescriptor *bs)
     // write through epoll returned pointer
     if (bs->epoll_returned_ptr) {
         *bs->epoll_returned_ptr = NULL;
-    }
-    
-    #endif
-    
-    #ifdef BADVPN_USE_KEVENT
-    
-    // delete kevents
-    update_kevent_fd_events(bsys, bs, 0);
-    
-    // invalidate any events
-    int event_index = bs->kevent_last_event;
-    while (event_index != -1) {
-        ASSERT(event_index >= 0 && event_index < bsys->kevent_results_num)
-        struct kevent *event = &bsys->kevent_results[event_index];
-        event->udata = NULL;
-        event_index = bsys->kevent_prev_event[event_index];
     }
     
     #endif
@@ -1093,12 +851,6 @@ void BReactor_SetFileDescriptorEvents (BReactor *bsys, BFileDescriptor *bs, int 
     event.events = eevents;
     event.data.ptr = bs;
     ASSERT_FORCE(epoll_ctl(bsys->efd, EPOLL_CTL_MOD, bs->fd, &event) == 0)
-    
-    #endif
-    
-    #ifdef BADVPN_USE_KEVENT
-    
-    update_kevent_fd_events(bsys, bs, events);
     
     #endif
     
@@ -1163,66 +915,3 @@ void BReactorLimit_SetLimit (BReactorLimit *o, int limit)
     // set limit
     o->limit = limit;
 }
-
-#ifdef BADVPN_USE_KEVENT
-
-int BReactorKEvent_Init (BReactorKEvent *o, BReactor *reactor, BReactorKEvent_handler handler, void *user, uintptr_t ident, short filter, u_int fflags, intptr_t data)
-{
-    DebugObject_Access(&reactor->d_obj);
-    
-    // init arguments
-    o->reactor = reactor;
-    o->handler = handler;
-    o->user = user;
-    o->ident = ident;
-    o->filter = filter;
-    
-    // add kevent
-    struct kevent event;
-    memset(&event, 0, sizeof(event));
-    event.ident = o->ident;
-    event.filter = o->filter;
-    event.flags = EV_ADD;
-    event.fflags = fflags;
-    event.data = data;
-    event.udata = &o->kevent_tag;
-    if (kevent(o->reactor->kqueue_fd, &event, 1, NULL, 0, NULL) < 0) {
-        return 0;
-    }
-    
-    // set kevent tag
-    o->kevent_tag = KEVENT_TAG_KEVENT;
-    
-    // have no events
-    o->kevent_last_event = -1;
-    
-    DebugObject_Init(&o->d_obj);
-    DebugCounter_Increment(&o->reactor->d_kevent_ctr);
-    return 1;
-}
-
-void BReactorKEvent_Free (BReactorKEvent *o)
-{
-    BReactor *reactor = o->reactor;
-    DebugObject_Free(&o->d_obj);
-    DebugCounter_Decrement(&reactor->d_kevent_ctr);
-    
-    // invalidate any events
-    int event_index = o->kevent_last_event;
-    while (event_index != -1) {
-        ASSERT(event_index >= 0 && event_index < reactor->kevent_results_num)
-        struct kevent *event = &reactor->kevent_results[event_index];
-        event->udata = NULL;
-        event_index = reactor->kevent_prev_event[event_index];
-    }
-    
-    // delete kevent
-    struct kevent event;
-    memset(&event, 0, sizeof(event));
-    event.ident = o->ident;
-    event.filter = o->filter;
-    event.flags = EV_DELETE;
-    ASSERT_FORCE(kevent(reactor->kqueue_fd, &event, 1, NULL, 0, NULL) == 0)
-}
-
-#endif

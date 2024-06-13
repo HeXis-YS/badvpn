@@ -88,20 +88,6 @@ static void signalfd_handler (BUnixSignal *o, int events)
 
 #endif
 
-#ifdef BADVPN_USE_KEVENT
-
-static void kevent_handler (struct BUnixSignal_kevent_entry *entry, u_int fflags, intptr_t data)
-{
-    BUnixSignal *o = entry->parent;
-    DebugObject_Access(&o->d_obj);
-    
-    // call signal
-    o->handler(o->user, entry->signo);
-    return;
-}
-
-#endif
-
 #ifdef BADVPN_USE_SELFPIPE
 
 struct BUnixSignal_selfpipe_entry *bunixsignal_selfpipe_entries[BUNIXSIGNAL_MAX_SIGNALS];
@@ -188,47 +174,6 @@ int BUnixSignal_Init (BUnixSignal *o, BReactor *reactor, sigset_t signals, BUnix
         goto fail1;
     }
     BReactor_SetFileDescriptorEvents(o->reactor, &o->signalfd_bfd, BREACTOR_READ);
-    
-    // block signals
-    if (pthread_sigmask(SIG_BLOCK, &o->signals, 0) != 0) {
-        BLog(BLOG_ERROR, "pthread_sigmask block failed");
-        goto fail2;
-    }
-    
-    #endif
-    
-    #ifdef BADVPN_USE_KEVENT
-    
-    // count signals
-    int num_signals = 0;
-    for (int i = 0; i < BUNIXSIGNAL_MAX_SIGNALS; i++) {
-        if (!sigismember(&o->signals, i)) {
-            continue;
-        }
-        num_signals++;
-    }
-    
-    // allocate array
-    if (!(o->entries = BAllocArray(num_signals, sizeof(o->entries[0])))) {
-        BLog(BLOG_ERROR, "BAllocArray failed");
-        goto fail0;
-    }
-    
-    // init kevents
-    o->num_entries = 0;
-    for (int i = 0; i < BUNIXSIGNAL_MAX_SIGNALS; i++) {
-        if (!sigismember(&o->signals, i)) {
-            continue;
-        }
-        struct BUnixSignal_kevent_entry *entry = &o->entries[o->num_entries];
-        entry->parent = o;
-        entry->signo = i;
-        if (!BReactorKEvent_Init(&entry->kevent, o->reactor, (BReactorKEvent_handler)kevent_handler, entry, entry->signo, EVFILT_SIGNAL, 0, 0)) {
-            BLog(BLOG_ERROR, "BReactorKEvent_Init failed");
-            goto fail2;
-        }
-        o->num_entries++;
-    }
     
     // block signals
     if (pthread_sigmask(SIG_BLOCK, &o->signals, 0) != 0) {
@@ -325,15 +270,6 @@ fail1:
     ASSERT_FORCE(close(o->signalfd_fd) == 0)
     #endif
     
-    #ifdef BADVPN_USE_KEVENT
-fail2:
-    while (o->num_entries > 0) {
-        BReactorKEvent_Free(&o->entries[o->num_entries - 1].kevent);
-        o->num_entries--;
-    }
-    BFree(o->entries);
-    #endif
-    
     #ifdef BADVPN_USE_SELFPIPE
 fail2:
     while (o->num_entries > 0) {
@@ -364,24 +300,6 @@ void BUnixSignal_Free (BUnixSignal *o, int unblock)
     
     // free signalfd fd
     ASSERT_FORCE(close(o->signalfd_fd) == 0)
-    
-    #endif
-    
-    #ifdef BADVPN_USE_KEVENT
-    
-    if (unblock) {
-        // unblock signals
-        ASSERT_FORCE(pthread_sigmask(SIG_UNBLOCK, &o->signals, 0) == 0)
-    }
-    
-    // free kevents
-    while (o->num_entries > 0) {
-        BReactorKEvent_Free(&o->entries[o->num_entries - 1].kevent);
-        o->num_entries--;
-    }
-    
-    // free array
-    BFree(o->entries);
     
     #endif
     

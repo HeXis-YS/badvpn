@@ -37,10 +37,8 @@
 #include <errno.h>
 #include <sys/types.h>
 #include <sys/socket.h>
-#ifdef BADVPN_LINUX
-#    include <netpacket/packet.h>
-#    include <net/ethernet.h>
-#endif
+#include <netpacket/packet.h>
+#include <net/ethernet.h>
 
 #include <misc/nonblocking.h>
 #include <base/BLog.h>
@@ -55,9 +53,7 @@ struct sys_addr {
         struct sockaddr generic;
         struct sockaddr_in ipv4;
         struct sockaddr_in6 ipv6;
-#ifdef BADVPN_LINUX
         struct sockaddr_ll packet;
-#endif
     } addr;
 };
 
@@ -81,10 +77,8 @@ static int family_socket_to_sys (int family)
             return AF_INET;
         case BADDR_TYPE_IPV6:
             return AF_INET6;
-#ifdef BADVPN_LINUX
         case BADDR_TYPE_PACKET:
             return AF_PACKET;
-#endif
     }
     
     ASSERT(0);
@@ -112,7 +106,6 @@ static void addr_socket_to_sys (struct sys_addr *out, BAddr addr)
             out->addr.ipv6.sin6_scope_id = 0;
         } break;
         
-#ifdef BADVPN_LINUX
         case BADDR_TYPE_PACKET: {
             ASSERT(addr.packet.header_type == BADDR_PACKET_HEADER_TYPE_ETHERNET)
             memset(&out->addr.packet, 0, sizeof(out->addr.packet));
@@ -143,7 +136,6 @@ static void addr_socket_to_sys (struct sys_addr *out, BAddr addr)
             out->addr.packet.sll_halen = 6;
             memcpy(out->addr.packet.sll_addr, addr.packet.phys_addr, 6);
         } break;
-#endif
         
         default: ASSERT(0);
     }
@@ -162,7 +154,6 @@ static void addr_sys_to_socket (BAddr *out, struct sys_addr addr)
             BAddr_InitIPv6(out, addr.addr.ipv6.sin6_addr.s6_addr, addr.addr.ipv6.sin6_port);
         } break;
         
-#ifdef BADVPN_LINUX
         case AF_PACKET: {
             if (addr.len < offsetof(struct sockaddr_ll, sll_addr) + 6) {
                 goto fail;
@@ -195,7 +186,6 @@ static void addr_sys_to_socket (BAddr *out, struct sys_addr addr)
             }
             BAddr_InitPacket(out, addr.addr.packet.sll_protocol, addr.addr.packet.sll_ifindex, BADDR_PACKET_HEADER_TYPE_ETHERNET, packet_type, addr.addr.packet.sll_addr);
         } break;
-#endif
         
         fail:
         default: {
@@ -210,15 +200,9 @@ static void set_pktinfo (int fd, int family)
     
     switch (family) {
         case BADDR_TYPE_IPV4: {
-#ifdef BADVPN_FREEBSD
-            if (setsockopt(fd, IPPROTO_IP, IP_RECVDSTADDR, &opt, sizeof(opt)) < 0) {
-                BLog(BLOG_ERROR, "setsockopt(IP_RECVDSTADDR) failed");
-            }
-#else
             if (setsockopt(fd, IPPROTO_IP, IP_PKTINFO, &opt, sizeof(opt)) < 0) {
                 BLog(BLOG_ERROR, "setsockopt(IP_PKTINFO) failed");
             }
-#endif
         } break;
         
 #ifdef IPV6_RECVPKTINFO
@@ -264,11 +248,7 @@ static void do_send (BDatagram *o)
     iov.iov_len = o->send.busy_data_len;
     
     union {
-#ifdef BADVPN_FREEBSD
-        char in[CMSG_SPACE(sizeof(struct in_addr))];
-#else
         char in[CMSG_SPACE(sizeof(struct in_pktinfo))];
-#endif
         char in6[CMSG_SPACE(sizeof(struct in6_pktinfo))];
     } cdata;
     
@@ -287,15 +267,6 @@ static void do_send (BDatagram *o)
     
     switch (o->send.local_addr.type) {
         case BADDR_TYPE_IPV4: {
-#ifdef BADVPN_FREEBSD
-            memset(cmsg, 0, CMSG_SPACE(sizeof(struct in_addr)));
-            cmsg->cmsg_level = IPPROTO_IP;
-            cmsg->cmsg_type = IP_SENDSRCADDR;
-            cmsg->cmsg_len = CMSG_LEN(sizeof(struct in_addr));
-            struct in_addr *addrinfo = (struct in_addr *)CMSG_DATA(cmsg);
-            addrinfo->s_addr = o->send.local_addr.ipv4;
-            controllen += CMSG_SPACE(sizeof(struct in_addr));
-#else
             memset(cmsg, 0, CMSG_SPACE(sizeof(struct in_pktinfo)));
             cmsg->cmsg_level = IPPROTO_IP;
             cmsg->cmsg_type = IP_PKTINFO;
@@ -303,7 +274,6 @@ static void do_send (BDatagram *o)
             struct in_pktinfo *pktinfo = (struct in_pktinfo *)CMSG_DATA(cmsg);
             pktinfo->ipi_spec_dst.s_addr = o->send.local_addr.ipv4;
             controllen += CMSG_SPACE(sizeof(struct in_pktinfo));
-#endif
         } break;
         
         case BADDR_TYPE_IPV6: {
@@ -384,11 +354,7 @@ static void do_recv (BDatagram *o)
     iov.iov_len = o->recv.mtu;
     
     union {
-#ifdef BADVPN_FREEBSD
-        char in[CMSG_SPACE(sizeof(struct in_addr))];
-#else
         char in[CMSG_SPACE(sizeof(struct in_pktinfo))];
-#endif
         char in6[CMSG_SPACE(sizeof(struct in6_pktinfo))];
     } cdata;
     
@@ -426,17 +392,10 @@ static void do_recv (BDatagram *o)
     // read returned local address
     BIPAddr_InitInvalid(&o->recv.local_addr);
     for (struct cmsghdr *cmsg = CMSG_FIRSTHDR(&msg); cmsg; cmsg = CMSG_NXTHDR(&msg, cmsg)) {
-#ifdef BADVPN_FREEBSD
-        if (cmsg->cmsg_level == IPPROTO_IP && cmsg->cmsg_type == IP_RECVDSTADDR) {
-            struct in_addr *addrinfo = (struct in_addr *)CMSG_DATA(cmsg);
-            BIPAddr_InitIPv4(&o->recv.local_addr, addrinfo->s_addr);
-        }
-#else
         if (cmsg->cmsg_level == IPPROTO_IP && cmsg->cmsg_type == IP_PKTINFO) {
             struct in_pktinfo *pktinfo = (struct in_pktinfo *)CMSG_DATA(cmsg);
             BIPAddr_InitIPv4(&o->recv.local_addr, pktinfo->ipi_addr.s_addr);
         }
-#endif
         else if (cmsg->cmsg_level == IPPROTO_IPV6 && cmsg->cmsg_type == IPV6_PKTINFO) {
             struct in6_pktinfo *pktinfo = (struct in6_pktinfo *)CMSG_DATA(cmsg);
             BIPAddr_InitIPv6(&o->recv.local_addr, pktinfo->ipi6_addr.s6_addr);
@@ -576,9 +535,7 @@ int BDatagram_AddressFamilySupported (int family)
     switch (family) {
         case BADDR_TYPE_IPV4:
         case BADDR_TYPE_IPV6:
-#ifdef BADVPN_LINUX
         case BADDR_TYPE_PACKET:
-#endif
             return 1;
     }
     
