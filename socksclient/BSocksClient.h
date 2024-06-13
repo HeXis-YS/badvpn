@@ -42,7 +42,6 @@
 #include <misc/debugerror.h>
 #include <misc/socks_proto.h>
 #include <misc/packed.h>
-#include <base/DebugObject.h>
 #include <base/BPending.h>
 #include <system/BConnection.h>
 #include <flow/PacketStreamSender.h>
@@ -109,8 +108,6 @@ typedef struct {
             int recv_total;
         } control;
     };
-    DebugError d_err;
-    DebugObject d_obj;
 } BSocksClient;
 
 struct BSocksClient_auth_info BSocksClient_auth_none (void);

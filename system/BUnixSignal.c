@@ -49,8 +49,6 @@
 
 static void signalfd_handler (BUnixSignal *o, int events)
 {
-    DebugObject_Access(&o->d_obj);
-    
     // read a signal
     struct signalfd_siginfo siginfo;
     int bytes = read(o->signalfd_fd, &siginfo, sizeof(siginfo));
@@ -116,8 +114,6 @@ int BUnixSignal_Init (BUnixSignal *o, BReactor *reactor, sigset_t signals, BUnix
         goto fail2;
     }
     
-    DebugObject_Init(&o->d_obj);
-    
     return 1;
     
 fail2:
@@ -131,7 +127,6 @@ fail0:
 void BUnixSignal_Free (BUnixSignal *o, int unblock)
 {
     ASSERT(unblock == 0 || unblock == 1)
-    DebugObject_Free(&o->d_obj);
     
     if (unblock) {
         // unblock signals

@@ -38,26 +38,6 @@
 #include <misc/debug.h>
 #include <base/BPending.h>
 
-#define DEBUGERROR(de, call) { (call); }
-
-typedef struct {
-    int dummy_field; // struct must have at least one field
-} DebugError;
-
-static void DebugError_Init (DebugError *o, BPendingGroup *pg);
-static void DebugError_Free (DebugError *o);
-static void DebugError_AssertNoError (DebugError *o);
-
-void DebugError_Init (DebugError *o, BPendingGroup *pg)
-{
-}
-
-void DebugError_Free (DebugError *o)
-{
-}
-
-void DebugError_AssertNoError (DebugError *o)
-{
-}
+#define DEBUGERROR(call) { (call); }
 
 #endif

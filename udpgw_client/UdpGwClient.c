@@ -85,7 +85,6 @@ static void free_server (UdpGwClient *o)
 
 static void decoder_handler_error (UdpGwClient *o)
 {
-    DebugObject_Access(&o->d_obj);
     ASSERT(o->have_server)
     
     BLog(BLOG_ERROR, "decoder error");
@@ -97,7 +96,6 @@ static void decoder_handler_error (UdpGwClient *o)
 
 static void recv_interface_handler_send (UdpGwClient *o, uint8_t *data, int data_len)
 {
-    DebugObject_Access(&o->d_obj);
     ASSERT(o->have_server)
     ASSERT(data_len >= 0)
     ASSERT(data_len <= o->udpgw_mtu)
@@ -171,8 +169,6 @@ static void recv_interface_handler_send (UdpGwClient *o, uint8_t *data, int data
 
 static void send_monitor_handler (UdpGwClient *o)
 {
-    DebugObject_Access(&o->d_obj);
-    
     if (o->keepalive_sending) {
         return;
     }
@@ -188,7 +184,6 @@ static void send_monitor_handler (UdpGwClient *o)
 
 static void keepalive_if_handler_done (UdpGwClient *o)
 {
-    DebugObject_Access(&o->d_obj);
     ASSERT(o->keepalive_sending)
     
     // set not sending keepalive
@@ -472,7 +467,6 @@ int UdpGwClient_Init (UdpGwClient *o, int udp_mtu, int max_connections, int send
     // set have no server
     o->have_server = 0;
     
-    DebugObject_Init(&o->d_obj);
     return 1;
     
 fail0:
@@ -483,8 +477,6 @@ fail0:
 
 void UdpGwClient_Free (UdpGwClient *o)
 {
-    DebugObject_Free(&o->d_obj);
-    
     // allow freeing send queue flows
     PacketPassFairQueue_PrepareFree(&o->send_queue);
     
@@ -514,7 +506,6 @@ void UdpGwClient_Free (UdpGwClient *o)
 
 void UdpGwClient_SubmitPacket (UdpGwClient *o, BAddr local_addr, BAddr remote_addr, int is_dns, const uint8_t *data, int data_len)
 {
-    DebugObject_Access(&o->d_obj);
     ASSERT(local_addr.type == BADDR_TYPE_IPV4 || local_addr.type == BADDR_TYPE_IPV6)
     ASSERT(remote_addr.type == BADDR_TYPE_IPV4 || remote_addr.type == BADDR_TYPE_IPV6)
     ASSERT(data_len >= 0)
@@ -556,7 +547,6 @@ void UdpGwClient_SubmitPacket (UdpGwClient *o, BAddr local_addr, BAddr remote_ad
 
 int UdpGwClient_ConnectServer (UdpGwClient *o, StreamPassInterface *send_if, StreamRecvInterface *recv_if)
 {
-    DebugObject_Access(&o->d_obj);
     ASSERT(!o->have_server)
     
     // init receive interface
@@ -586,7 +576,6 @@ fail1:
 
 void UdpGwClient_DisconnectServer (UdpGwClient *o)
 {
-    DebugObject_Access(&o->d_obj);
     ASSERT(o->have_server)
     
     // free server

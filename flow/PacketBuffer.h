@@ -37,7 +37,6 @@
 #include <stdint.h>
 
 #include <misc/debug.h>
-#include <base/DebugObject.h>
 #include <structure/ChunkBuffer2.h>
 #include <flow/PacketRecvInterface.h>
 #include <flow/PacketPassInterface.h>
@@ -46,7 +45,6 @@
  * Packet buffer with {@link PacketRecvInterface} input and {@link PacketPassInterface} output.
  */
 typedef struct {
-    DebugObject d_obj;
     PacketRecvInterface *input;
     int input_mtu;
     PacketPassInterface *output;

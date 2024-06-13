@@ -43,7 +43,6 @@
 #include <stddef.h>
 
 #include <misc/debug.h>
-#include <base/DebugObject.h>
 #include <base/BPending.h>
 
 #define SPI_STATE_NONE 1
@@ -75,8 +74,6 @@ typedef struct {
     
     // state
     int state;
-    
-    DebugObject d_obj;
 } StreamPassInterface;
 
 static void StreamPassInterface_Init (StreamPassInterface *i, StreamPassInterface_handler_send handler_operation, void *user, BPendingGroup *pg);
@@ -107,14 +104,10 @@ void StreamPassInterface_Init (StreamPassInterface *i, StreamPassInterface_handl
     
     // set state
     i->state = SPI_STATE_NONE;
-    
-    DebugObject_Init(&i->d_obj);
 }
 
 void StreamPassInterface_Free (StreamPassInterface *i)
 {
-    DebugObject_Free(&i->d_obj);
-    
     // free jobs
     BPending_Free(&i->job_done);
     BPending_Free(&i->job_operation);
@@ -125,7 +118,6 @@ void StreamPassInterface_Done (StreamPassInterface *i, int data_len)
     ASSERT(i->state == SPI_STATE_BUSY)
     ASSERT(data_len > 0)
     ASSERT(data_len <= i->job_operation_len)
-    DebugObject_Access(&i->d_obj);
     
     // schedule done
     i->job_done_len = data_len;
@@ -139,7 +131,6 @@ void StreamPassInterface_Sender_Init (StreamPassInterface *i, StreamPassInterfac
 {
     ASSERT(handler_done)
     ASSERT(!i->handler_done)
-    DebugObject_Access(&i->d_obj);
     
     i->handler_done = handler_done;
     i->user_user = user;
@@ -151,7 +142,6 @@ void StreamPassInterface_Sender_Send (StreamPassInterface *i, uint8_t *data, int
     ASSERT(data)
     ASSERT(i->state == SPI_STATE_NONE)
     ASSERT(i->handler_done)
-    DebugObject_Access(&i->d_obj);
     
     // schedule operation
     i->job_operation_data = data;

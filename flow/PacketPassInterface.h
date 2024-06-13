@@ -38,7 +38,6 @@
 #include <stddef.h>
 
 #include <misc/debug.h>
-#include <base/DebugObject.h>
 #include <base/BPending.h>
 
 #define PPI_STATE_NONE 1
@@ -77,8 +76,6 @@ typedef struct {
     // state
     int state;
     int cancel_requested;
-    
-    DebugObject d_obj;
 } PacketPassInterface;
 
 static void PacketPassInterface_Init (PacketPassInterface *i, int mtu, PacketPassInterface_handler_send handler_operation, void *user, BPendingGroup *pg);
@@ -123,14 +120,10 @@ void PacketPassInterface_Init (PacketPassInterface *i, int mtu, PacketPassInterf
     
     // set state
     i->state = PPI_STATE_NONE;
-    
-    DebugObject_Init(&i->d_obj);
 }
 
 void PacketPassInterface_Free (PacketPassInterface *i)
 {
-    DebugObject_Free(&i->d_obj);
-    
     // free jobs
     BPending_Free(&i->job_done);
     BPending_Free(&i->job_requestcancel);
@@ -149,7 +142,6 @@ void PacketPassInterface_EnableCancel (PacketPassInterface *i, PacketPassInterfa
 void PacketPassInterface_Done (PacketPassInterface *i)
 {
     ASSERT(i->state == PPI_STATE_BUSY)
-    DebugObject_Access(&i->d_obj);
     
     // unset requestcancel job
     BPending_Unset(&i->job_requestcancel);
@@ -163,8 +155,6 @@ void PacketPassInterface_Done (PacketPassInterface *i)
 
 int PacketPassInterface_GetMTU (PacketPassInterface *i)
 {
-    DebugObject_Access(&i->d_obj);
-    
     return i->mtu;
 }
 
@@ -172,7 +162,6 @@ void PacketPassInterface_Sender_Init (PacketPassInterface *i, PacketPassInterfac
 {
     ASSERT(handler_done)
     ASSERT(!i->handler_done)
-    DebugObject_Access(&i->d_obj);
     
     i->handler_done = handler_done;
     i->user_user = user;
@@ -185,7 +174,6 @@ void PacketPassInterface_Sender_Send (PacketPassInterface *i, uint8_t *data, int
     ASSERT(!(data_len > 0) || data)
     ASSERT(i->state == PPI_STATE_NONE)
     ASSERT(i->handler_done)
-    DebugObject_Access(&i->d_obj);
     
     // schedule operation
     i->job_operation_data = data;
@@ -201,7 +189,6 @@ void PacketPassInterface_Sender_RequestCancel (PacketPassInterface *i)
 {
     ASSERT(i->state == PPI_STATE_OPERATION_PENDING || i->state == PPI_STATE_BUSY || i->state == PPI_STATE_DONE_PENDING)
     ASSERT(i->handler_requestcancel)
-    DebugObject_Access(&i->d_obj);
     
     // ignore multiple cancel requests
     if (i->cancel_requested) {
@@ -228,8 +215,6 @@ void PacketPassInterface_Sender_RequestCancel (PacketPassInterface *i)
 
 int PacketPassInterface_HasCancel (PacketPassInterface *i)
 {
-    DebugObject_Access(&i->d_obj);
-    
     return !!i->handler_requestcancel;
 }
 

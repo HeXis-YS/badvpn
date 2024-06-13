@@ -51,7 +51,6 @@ static void input_handler_send (PacketStreamSender *s, uint8_t *data, int data_l
 {
     ASSERT(s->in_len == -1)
     ASSERT(data_len >= 0)
-    DebugObject_Access(&s->d_obj);
     
     // set input packet
     s->in_len = data_len;
@@ -67,7 +66,6 @@ static void output_handler_done (PacketStreamSender *s, int data_len)
     ASSERT(s->in_len >= 0)
     ASSERT(data_len > 0)
     ASSERT(data_len <= s->in_len - s->in_used)
-    DebugObject_Access(&s->d_obj);
     
     // update number of bytes sent
     s->in_used += data_len;
@@ -91,21 +89,15 @@ void PacketStreamSender_Init (PacketStreamSender *s, StreamPassInterface *output
     
     // have no input packet
     s->in_len = -1;
-    
-    DebugObject_Init(&s->d_obj);
 }
 
 void PacketStreamSender_Free (PacketStreamSender *s)
 {
-    DebugObject_Free(&s->d_obj);
-    
     // free input
     PacketPassInterface_Free(&s->input);
 }
 
 PacketPassInterface * PacketStreamSender_GetInput (PacketStreamSender *s)
 {
-    DebugObject_Access(&s->d_obj);
-    
     return &s->input;
 }

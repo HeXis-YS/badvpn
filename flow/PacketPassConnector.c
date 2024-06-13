@@ -38,7 +38,6 @@ static void input_handler_send (PacketPassConnector *o, uint8_t *data, int data_
     ASSERT(data_len >= 0)
     ASSERT(data_len <= o->input_mtu)
     ASSERT(o->in_len == -1)
-    DebugObject_Access(&o->d_obj);
     
     // remember input packet
     o->in_len = data_len;
@@ -54,7 +53,6 @@ static void output_handler_done (PacketPassConnector *o)
 {
     ASSERT(o->in_len >= 0)
     ASSERT(o->output)
-    DebugObject_Access(&o->d_obj);
     
     // have no input packet
     o->in_len = -1;
@@ -78,22 +76,16 @@ void PacketPassConnector_Init (PacketPassConnector *o, int mtu, BPendingGroup *p
     
     // have no output
     o->output = NULL;
-    
-    DebugObject_Init(&o->d_obj);
 }
 
 void PacketPassConnector_Free (PacketPassConnector *o)
 {
-    DebugObject_Free(&o->d_obj);
-    
     // free input
     PacketPassInterface_Free(&o->input);
 }
 
 PacketPassInterface * PacketPassConnector_GetInput (PacketPassConnector *o)
-{
-    DebugObject_Access(&o->d_obj);
-    
+{    
     return &o->input;
 }
 
@@ -101,7 +93,6 @@ void PacketPassConnector_ConnectOutput (PacketPassConnector *o, PacketPassInterf
 {
     ASSERT(!o->output)
     ASSERT(PacketPassInterface_GetMTU(output) >= o->input_mtu)
-    DebugObject_Access(&o->d_obj);
     
     // set output
     o->output = output;
@@ -118,7 +109,6 @@ void PacketPassConnector_ConnectOutput (PacketPassConnector *o, PacketPassInterf
 void PacketPassConnector_DisconnectOutput (PacketPassConnector *o)
 {
     ASSERT(o->output)
-    DebugObject_Access(&o->d_obj);
     
     // set no output
     o->output = NULL;

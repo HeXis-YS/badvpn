@@ -36,7 +36,6 @@
 #include <misc/packed.h>
 #include <structure/BAVL.h>
 #include <structure/LinkedList1.h>
-#include <base/DebugObject.h>
 #include <system/BAddr.h>
 #include <base/BPending.h>
 #include <flow/PacketPassFairQueue.h>
@@ -83,7 +82,6 @@ typedef struct {
     PacketStreamSender send_sender;
     PacketProtoDecoder recv_decoder;
     PacketPassInterface recv_if;
-    DebugObject d_obj;
 } UdpGwClient;
 
 struct UdpGwClient_conaddr {

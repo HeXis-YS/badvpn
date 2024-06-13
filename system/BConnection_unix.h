@@ -28,7 +28,6 @@
  */
 
 #include <misc/debugerror.h>
-#include <base/DebugObject.h>
 
 #define BCONNECTION_SEND_LIMIT 2
 #define BCONNECTION_RECV_LIMIT 2
@@ -42,7 +41,6 @@ struct BListener_s {
     int fd;
     BFileDescriptor bfd;
     BPending default_job;
-    DebugObject d_obj;
 };
 
 struct BConnector_s {
@@ -54,7 +52,6 @@ struct BConnector_s {
     int connected;
     int have_bfd;
     BFileDescriptor bfd;
-    DebugObject d_obj;
 };
 
 struct BConnection_s {
@@ -82,6 +79,4 @@ struct BConnection_s {
         int busy_data_avail;
         int state;
     } recv;
-    DebugError d_err;
-    DebugObject d_obj;
 };

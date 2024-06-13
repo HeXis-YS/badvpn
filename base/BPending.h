@@ -36,9 +36,7 @@
 
 #include <stdint.h>
 
-#include <misc/debugcounter.h>
 #include <structure/SLinkedList.h>
-#include <base/DebugObject.h>
 
 struct BSmallPending_s;
 
@@ -72,8 +70,6 @@ typedef void (*BPending_handler) (void *user);
  */
 typedef struct {
     BPending__List jobs;
-    DebugCounter pending_ctr;
-    DebugObject d_obj;
 } BPendingGroup;
 
 /**
@@ -83,7 +79,6 @@ typedef struct BSmallPending_s {
     BPending_handler handler;
     void *user;
     BPending__ListNode pending_node; // optimization: if not pending, .next is this
-    DebugObject d_obj;
 } BSmallPending;
 
 /**

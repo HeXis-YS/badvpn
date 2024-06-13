@@ -32,7 +32,6 @@
 void _StreamRecvInterface_job_operation (StreamRecvInterface *i)
 {
     ASSERT(i->state == SRI_STATE_OPERATION_PENDING)
-    DebugObject_Access(&i->d_obj);
     
     // set state
     i->state = SRI_STATE_BUSY;
@@ -45,7 +44,6 @@ void _StreamRecvInterface_job_operation (StreamRecvInterface *i)
 void _StreamRecvInterface_job_done (StreamRecvInterface *i)
 {
     ASSERT(i->state == SRI_STATE_DONE_PENDING)
-    DebugObject_Access(&i->d_obj);
     
     // set state
     i->state = SRI_STATE_NONE;

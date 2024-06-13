@@ -37,10 +37,8 @@
 #include <stdint.h>
 
 #include <misc/debug.h>
-#include <misc/debugcounter.h>
 #include <structure/SAvl.h>
 #include <structure/LinkedList1.h>
-#include <base/DebugObject.h>
 #include <base/BPending.h>
 #include <flow/PacketPassInterface.h>
 
@@ -67,7 +65,6 @@ typedef struct PacketPassFairQueueFlow_s {
         uint8_t *data;
         int data_len;
     } queued;
-    DebugObject d_obj;
 } PacketPassFairQueueFlow;
 
 /**
@@ -85,8 +82,6 @@ typedef struct PacketPassFairQueue_s {
     LinkedList1 flows_list;
     int freeing;
     BPending schedule_job;
-    DebugObject d_obj;
-    DebugCounter d_ctr;
 } PacketPassFairQueue;
 
 /**

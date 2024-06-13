@@ -37,7 +37,6 @@
 
 #include <misc/debug.h>
 
-#include <base/DebugObject.h>
 #include <flow/BufferWriter.h>
 #include <flow/PacketProtoEncoder.h>
 #include <flow/PacketBuffer.h>
@@ -50,7 +49,6 @@ typedef struct {
     BufferWriter ainput;
     PacketProtoEncoder encoder;
     PacketBuffer buffer;
-    DebugObject d_obj;
 } PacketProtoFlow;
 
 /**

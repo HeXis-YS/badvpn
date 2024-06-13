@@ -65,7 +65,7 @@ static void auth_finished (BSocksClient *p);
 
 void report_error (BSocksClient *o, int error)
 {
-    DEBUGERROR(&o->d_err, o->handler(o->user, error))
+    DEBUGERROR(o->handler(o->user, error))
 }
 
 void init_control_io (BSocksClient *o)
@@ -148,7 +148,6 @@ void do_receive (BSocksClient *o)
 
 void connector_handler (BSocksClient* o, int is_error)
 {
-    DebugObject_Access(&o->d_obj);
     ASSERT(o->state == STATE_CONNECTING)
     
     // check connection result
@@ -184,7 +183,6 @@ fail0:
 
 void connection_handler (BSocksClient* o, int event)
 {
-    DebugObject_Access(&o->d_obj);
     ASSERT(o->state != STATE_CONNECTING)
     
     if (o->state == STATE_UP && event == BCONNECTION_EVENT_RECVCLOSED) {
@@ -198,7 +196,6 @@ void connection_handler (BSocksClient* o, int event)
 
 void continue_job_handler (BSocksClient *o)
 {
-    DebugObject_Access(&o->d_obj);
     ASSERT(o->state == STATE_CONNECTED_HANDLER)
 
     // check number of methods
@@ -249,7 +246,6 @@ void recv_handler_done (BSocksClient *o, int data_len)
 {
     ASSERT(data_len >= 0)
     ASSERT(data_len <= o->control.recv_total - o->control.recv_len)
-    DebugObject_Access(&o->d_obj);
     
     o->control.recv_len += data_len;
     
@@ -439,7 +435,6 @@ fail:
 
 void send_handler_done (BSocksClient *o)
 {
-    DebugObject_Access(&o->d_obj);
     ASSERT(o->buffer)
     
     switch (o->state) {
@@ -606,8 +601,6 @@ int BSocksClient_Init (BSocksClient *o, BAddr server_addr,
     // set state
     o->state = STATE_CONNECTING;
     
-    DebugError_Init(&o->d_err, BReactor_PendingGroup(o->reactor));
-    DebugObject_Init(&o->d_obj);
     return 1;
     
 fail0:
@@ -617,9 +610,6 @@ fail0:
 
 void BSocksClient_Free (BSocksClient *o)
 {
-    DebugObject_Free(&o->d_obj);
-    DebugError_Free(&o->d_err);
-    
     if (o->state != STATE_CONNECTING) {
         if (o->state == STATE_UP) {
             // free up I/O
@@ -648,7 +638,6 @@ void BSocksClient_Free (BSocksClient *o)
 int BSocksClient_GetLocalAddr (BSocksClient *o, BAddr *local_addr)
 {
     ASSERT(o->state != STATE_CONNECTING)
-    DebugObject_Access(&o->d_obj);
 
     return BConnection_GetLocalAddress(&o->con, local_addr);
 }
@@ -656,7 +645,6 @@ int BSocksClient_GetLocalAddr (BSocksClient *o, BAddr *local_addr)
 void BSocksClient_SetDestAddr (BSocksClient *o, BAddr dest_addr)
 {
     ASSERT(o->state == STATE_CONNECTING || o->state == STATE_CONNECTED_HANDLER)
-    DebugObject_Access(&o->d_obj);
 
     o->dest_addr = dest_addr;
 }
@@ -664,7 +652,6 @@ void BSocksClient_SetDestAddr (BSocksClient *o, BAddr dest_addr)
 BAddr BSocksClient_GetBindAddr (BSocksClient *o)
 {
     ASSERT(o->state == STATE_UP)
-    DebugObject_Access(&o->d_obj);
 
     return o->bind_addr;
 }
@@ -673,7 +660,6 @@ StreamPassInterface * BSocksClient_GetSendInterface (BSocksClient *o)
 {
     ASSERT(o->state == STATE_UP)
     ASSERT(!o->udp)
-    DebugObject_Access(&o->d_obj);
     
     return BConnection_SendAsync_GetIf(&o->con);
 }
@@ -682,7 +668,6 @@ StreamRecvInterface * BSocksClient_GetRecvInterface (BSocksClient *o)
 {
     ASSERT(o->state == STATE_UP)
     ASSERT(!o->udp)
-    DebugObject_Access(&o->d_obj);
     
     return BConnection_RecvAsync_GetIf(&o->con);
 }

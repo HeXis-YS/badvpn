@@ -52,9 +52,6 @@ static void output_handler_recv (BTap *o, uint8_t *data);
 
 static void fd_handler (BTap *o, int events)
 {
-    DebugObject_Access(&o->d_obj);
-    DebugError_AssertNoError(&o->d_err);
-    
     if (events&(BREACTOR_ERROR|BREACTOR_HUP)) {
         BLog(BLOG_WARNING, "device fd reports error?");
     }
@@ -92,13 +89,11 @@ static void fd_handler (BTap *o, int events)
 
 void report_error (BTap *o)
 {
-    DEBUGERROR(&o->d_err, o->handler_error(o->handler_error_user));
+    DEBUGERROR(o->handler_error(o->handler_error_user));
 }
 
 void output_handler_recv (BTap *o, uint8_t *data)
 {
-    DebugObject_Access(&o->d_obj);
-    DebugError_AssertNoError(&o->d_err);
     ASSERT(data)
     ASSERT(!o->output_packet)
     
@@ -250,16 +245,11 @@ success:
     // set no output packet
     o->output_packet = NULL;
     
-    DebugError_Init(&o->d_err, BReactor_PendingGroup(o->reactor));
-    DebugObject_Init(&o->d_obj);
     return 1;
 }
 
 void BTap_Free (BTap *o)
 {
-    DebugObject_Free(&o->d_obj);
-    DebugError_Free(&o->d_err);
-    
     // free output
     PacketRecvInterface_Free(&o->output);
     
@@ -274,15 +264,11 @@ void BTap_Free (BTap *o)
 
 int BTap_GetMTU (BTap *o)
 {
-    DebugObject_Access(&o->d_obj);
-    
     return o->frame_mtu;
 }
 
 void BTap_Send (BTap *o, uint8_t *data, int data_len)
 {
-    DebugObject_Access(&o->d_obj);
-    DebugError_AssertNoError(&o->d_err);
     ASSERT(data_len >= 0)
     ASSERT(data_len <= o->frame_mtu)
     
@@ -299,7 +285,5 @@ void BTap_Send (BTap *o, uint8_t *data, int data_len)
 
 PacketRecvInterface * BTap_GetOutput (BTap *o)
 {
-    DebugObject_Access(&o->d_obj);
-    
     return &o->output;
 }

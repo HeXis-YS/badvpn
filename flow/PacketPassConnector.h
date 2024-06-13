@@ -37,7 +37,6 @@
 
 #include <stdint.h>
 
-#include <base/DebugObject.h>
 #include <flow/PacketPassInterface.h>
 
 /**
@@ -50,7 +49,6 @@ typedef struct {
     int in_len;
     uint8_t *in;
     PacketPassInterface *output;
-    DebugObject d_obj;
 } PacketPassConnector;
 
 /**

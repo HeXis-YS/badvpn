@@ -149,8 +149,6 @@ static void addr_sys_to_socket (BAddr *out, struct sys_addr addr)
 
 static void listener_fd_handler (BListener *o, int events)
 {
-    DebugObject_Access(&o->d_obj);
-    
     // set default job
     BPending_Set(&o->default_job);
     
@@ -161,8 +159,6 @@ static void listener_fd_handler (BListener *o, int events)
 
 static void listener_default_job_handler (BListener *o)
 {
-    DebugObject_Access(&o->d_obj);
-    
     BLog(BLOG_ERROR, "discarding connection");
     
     // accept
@@ -180,7 +176,6 @@ static void listener_default_job_handler (BListener *o)
 
 static void connector_fd_handler (BConnector *o, int events)
 {
-    DebugObject_Access(&o->d_obj);
     ASSERT(o->fd >= 0)
     ASSERT(!o->connected)
     ASSERT(o->have_bfd)
@@ -216,7 +211,6 @@ fail0:
 
 static void connector_job_handler (BConnector *o)
 {
-    DebugObject_Access(&o->d_obj);
     ASSERT(o->fd >= 0)
     ASSERT(o->connected)
     ASSERT(!o->have_bfd)
@@ -228,17 +222,15 @@ static void connector_job_handler (BConnector *o)
 
 static void connection_report_error (BConnection *o)
 {
-    DebugError_AssertNoError(&o->d_err);
     ASSERT(o->handler)
     
     // report error
-    DEBUGERROR(&o->d_err, o->handler(o->user, BCONNECTION_EVENT_ERROR));
+    DEBUGERROR(o->handler(o->user, BCONNECTION_EVENT_ERROR));
     return;
 }
 
 static void connection_send (BConnection *o)
 {
-    DebugError_AssertNoError(&o->d_err);
     ASSERT(o->send.state == SEND_STATE_BUSY)
     
     // limit
@@ -278,7 +270,6 @@ static void connection_send (BConnection *o)
 
 static void connection_recv (BConnection *o)
 {
-    DebugError_AssertNoError(&o->d_err);
     ASSERT(o->recv.state == RECV_STATE_BUSY)
     
     // limit
@@ -327,8 +318,6 @@ static void connection_recv (BConnection *o)
 
 static void connection_fd_handler (BConnection *o, int events)
 {
-    DebugObject_Access(&o->d_obj);
-    DebugError_AssertNoError(&o->d_err);
     ASSERT(!o->is_hupd)
     
     // clear handled events
@@ -377,8 +366,6 @@ static void connection_fd_handler (BConnection *o, int events)
 
 static void connection_send_job_handler (BConnection *o)
 {
-    DebugObject_Access(&o->d_obj);
-    DebugError_AssertNoError(&o->d_err);
     ASSERT(o->send.state == SEND_STATE_BUSY)
     
     connection_send(o);
@@ -387,8 +374,6 @@ static void connection_send_job_handler (BConnection *o)
 
 static void connection_recv_job_handler (BConnection *o)
 {
-    DebugObject_Access(&o->d_obj);
-    DebugError_AssertNoError(&o->d_err);
     ASSERT(o->recv.state == RECV_STATE_BUSY)
     
     connection_recv(o);
@@ -397,8 +382,6 @@ static void connection_recv_job_handler (BConnection *o)
 
 static void connection_send_if_handler_send (BConnection *o, uint8_t *data, int data_len)
 {
-    DebugObject_Access(&o->d_obj);
-    DebugError_AssertNoError(&o->d_err);
     ASSERT(o->send.state == SEND_STATE_READY)
     ASSERT(data_len > 0)
     
@@ -415,8 +398,6 @@ static void connection_send_if_handler_send (BConnection *o, uint8_t *data, int 
 
 static void connection_recv_if_handler_recv (BConnection *o, uint8_t *data, int data_avail)
 {
-    DebugObject_Access(&o->d_obj);
-    DebugError_AssertNoError(&o->d_err);
     ASSERT(o->recv.state == RECV_STATE_READY)
     ASSERT(data_avail > 0)
     
@@ -543,7 +524,6 @@ int BListener_InitFrom (BListener *o, struct BLisCon_from from,
     // init default job
     BPending_Init(&o->default_job, BReactor_PendingGroup(o->reactor), (BPending_handler)listener_default_job_handler, o);
     
-    DebugObject_Init(&o->d_obj);
     return 1;
     
 fail3:
@@ -564,8 +544,6 @@ fail0:
 
 void BListener_Free (BListener *o)
 {
-    DebugObject_Free(&o->d_obj);
-    
     // free default job
     BPending_Free(&o->default_job);
     
@@ -683,7 +661,6 @@ int BConnector_InitFrom (BConnector *o, struct BLisCon_from from, BReactor *reac
         BPending_Set(&o->job);
     }
     
-    DebugObject_Init(&o->d_obj);
     return 1;
     
 fail2:
@@ -698,8 +675,6 @@ fail0:
 
 void BConnector_Free (BConnector *o)
 {
-    DebugObject_Free(&o->d_obj);
-    
     // free BFileDescriptor
     if (o->have_bfd) {
         BReactor_RemoveFileDescriptor(o->reactor, &o->bfd);
@@ -722,12 +697,10 @@ int BConnection_Init (BConnection *o, struct BConnection_source source, BReactor
     switch (source.type) {
         case BCONNECTION_SOURCE_TYPE_LISTENER: {
             BListener *listener = source.u.listener.listener;
-            DebugObject_Access(&listener->d_obj);
             ASSERT(BPending_IsSet(&listener->default_job))
         } break;
         case BCONNECTION_SOURCE_TYPE_CONNECTOR: {
             BConnector *connector = source.u.connector.connector;
-            DebugObject_Access(&connector->d_obj);
             ASSERT(connector->fd >= 0)
             ASSERT(connector->connected)
             ASSERT(!connector->have_bfd)
@@ -817,8 +790,6 @@ int BConnection_Init (BConnection *o, struct BConnection_source source, BReactor
     o->send.state = SEND_STATE_NOT_INITED;
     o->recv.state = RECV_STATE_NOT_INITED;
     
-    DebugError_Init(&o->d_err, BReactor_PendingGroup(o->reactor));
-    DebugObject_Init(&o->d_obj);
     return 1;
     
 fail1:
@@ -833,8 +804,6 @@ fail0:
 
 void BConnection_Free (BConnection *o)
 {
-    DebugObject_Free(&o->d_obj);
-    DebugError_Free(&o->d_err);
     ASSERT(o->send.state == SEND_STATE_NOT_INITED)
     ASSERT(o->recv.state == RECV_STATE_NOT_INITED || o->recv.state == RECV_STATE_NOT_INITED_CLOSED)
     
@@ -857,8 +826,6 @@ void BConnection_Free (BConnection *o)
 
 void BConnection_SetHandlers (BConnection *o, void *user, BConnection_handler handler)
 {
-    DebugObject_Access(&o->d_obj);
-    
     // set handlers
     o->user = user;
     o->handler = handler;
@@ -866,8 +833,6 @@ void BConnection_SetHandlers (BConnection *o, void *user, BConnection_handler ha
 
 int BConnection_SetSendBuffer (BConnection *o, int buf_size)
 {
-    DebugObject_Access(&o->d_obj);
-    
     if (setsockopt(o->fd, SOL_SOCKET, SO_SNDBUF, (void *)&buf_size, sizeof(buf_size)) < 0) {
         BLog(BLOG_ERROR, "setsockopt failed");
         return 0;
@@ -878,8 +843,6 @@ int BConnection_SetSendBuffer (BConnection *o, int buf_size)
 
 int BConnection_GetLocalAddress (BConnection *o, BAddr *local_addr)
 {
-    DebugObject_Access(&o->d_obj);
-    
     struct sys_addr sysaddr;
     sysaddr.len = sizeof(sysaddr.addr);
     if (getsockname(o->fd, &sysaddr.addr.generic, &sysaddr.len) != 0) {
@@ -902,8 +865,6 @@ int BConnection_GetLocalAddress (BConnection *o, BAddr *local_addr)
 
 void BConnection_SendAsync_Init (BConnection *o)
 {
-    DebugObject_Access(&o->d_obj);
-    DebugError_AssertNoError(&o->d_err);
     ASSERT(o->send.state == SEND_STATE_NOT_INITED)
     
     // init interface
@@ -918,7 +879,6 @@ void BConnection_SendAsync_Init (BConnection *o)
 
 void BConnection_SendAsync_Free (BConnection *o)
 {
-    DebugObject_Access(&o->d_obj);
     ASSERT(o->send.state == SEND_STATE_READY || o->send.state == SEND_STATE_BUSY)
     
     // update events
@@ -939,7 +899,6 @@ void BConnection_SendAsync_Free (BConnection *o)
 
 StreamPassInterface * BConnection_SendAsync_GetIf (BConnection *o)
 {
-    DebugObject_Access(&o->d_obj);
     ASSERT(o->send.state == SEND_STATE_READY || o->send.state == SEND_STATE_BUSY)
     
     return &o->send.iface;
@@ -947,8 +906,6 @@ StreamPassInterface * BConnection_SendAsync_GetIf (BConnection *o)
 
 void BConnection_RecvAsync_Init (BConnection *o)
 {
-    DebugObject_Access(&o->d_obj);
-    DebugError_AssertNoError(&o->d_err);
     ASSERT(o->recv.state == RECV_STATE_NOT_INITED)
     
     // init interface
@@ -963,7 +920,6 @@ void BConnection_RecvAsync_Init (BConnection *o)
 
 void BConnection_RecvAsync_Free (BConnection *o)
 {
-    DebugObject_Access(&o->d_obj);
     ASSERT(o->recv.state == RECV_STATE_READY || o->recv.state == RECV_STATE_BUSY || o->recv.state == RECV_STATE_INITED_CLOSED)
     
     // update events
@@ -984,7 +940,6 @@ void BConnection_RecvAsync_Free (BConnection *o)
 
 StreamRecvInterface * BConnection_RecvAsync_GetIf (BConnection *o)
 {
-    DebugObject_Access(&o->d_obj);
     ASSERT(o->recv.state == RECV_STATE_READY || o->recv.state == RECV_STATE_BUSY || o->recv.state == RECV_STATE_INITED_CLOSED)
     
     return &o->recv.iface;

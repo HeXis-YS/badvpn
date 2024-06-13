@@ -41,32 +41,21 @@ void BPendingGroup_Init (BPendingGroup *g)
 {
     // init jobs list
     BPending__List_Init(&g->jobs);
-    
-    // init pending counter
-    DebugCounter_Init(&g->pending_ctr);
-    
-    // init debug object
-    DebugObject_Init(&g->d_obj);
 }
 
 void BPendingGroup_Free (BPendingGroup *g)
 {
-    DebugCounter_Free(&g->pending_ctr);
     ASSERT(BPending__List_IsEmpty(&g->jobs))
-    DebugObject_Free(&g->d_obj);
 }
 
 int BPendingGroup_HasJobs (BPendingGroup *g)
 {
-    DebugObject_Access(&g->d_obj);
-    
     return !BPending__List_IsEmpty(&g->jobs);
 }
 
 void BPendingGroup_ExecuteJob (BPendingGroup *g)
 {
     ASSERT(!BPending__List_IsEmpty(&g->jobs))
-    DebugObject_Access(&g->d_obj);
     
     // get a job
     BSmallPending *p = BPending__List_First(&g->jobs);
@@ -86,8 +75,6 @@ void BPendingGroup_ExecuteJob (BPendingGroup *g)
 
 BSmallPending * BPendingGroup_PeekJob (BPendingGroup *g)
 {
-    DebugObject_Access(&g->d_obj);
-    
     return BPending__List_First(&g->jobs);
 }
 
@@ -99,18 +86,10 @@ void BSmallPending_Init (BSmallPending *o, BPendingGroup *g, BSmallPending_handl
     
     // set not pending
     BPending__ListMarkRemoved(o);
-    
-    // increment pending counter
-    DebugCounter_Increment(&g->pending_ctr);
-    
-    // init debug object
-    DebugObject_Init(&o->d_obj);
 }
 
 void BSmallPending_Free (BSmallPending *o, BPendingGroup *g)
 {
-    DebugCounter_Decrement(&g->pending_ctr);
-    DebugObject_Free(&o->d_obj);
     ASSERT(o->pending == !BPending__ListIsRemoved(o))
     
     // remove from jobs list
@@ -121,8 +100,6 @@ void BSmallPending_Free (BSmallPending *o, BPendingGroup *g)
 
 void BSmallPending_SetHandler (BSmallPending *o, BSmallPending_handler handler, void *user)
 {
-    DebugObject_Access(&o->d_obj);
-    
     // set handler
     o->handler = handler;
     o->user = user;
@@ -130,7 +107,6 @@ void BSmallPending_SetHandler (BSmallPending *o, BSmallPending_handler handler, 
 
 void BSmallPending_Set (BSmallPending *o, BPendingGroup *g)
 {
-    DebugObject_Access(&o->d_obj);
     ASSERT(o->pending == !BPending__ListIsRemoved(o))
     
     // remove from jobs list
@@ -144,7 +120,6 @@ void BSmallPending_Set (BSmallPending *o, BPendingGroup *g)
 
 void BSmallPending_Unset (BSmallPending *o, BPendingGroup *g)
 {
-    DebugObject_Access(&o->d_obj);
     ASSERT(o->pending == !BPending__ListIsRemoved(o))
     
     if (!BPending__ListIsRemoved(o)) {
@@ -158,7 +133,6 @@ void BSmallPending_Unset (BSmallPending *o, BPendingGroup *g)
 
 int BSmallPending_IsSet (BSmallPending *o)
 {
-    DebugObject_Access(&o->d_obj);
     ASSERT(o->pending == !BPending__ListIsRemoved(o))
     
     return !BPending__ListIsRemoved(o);

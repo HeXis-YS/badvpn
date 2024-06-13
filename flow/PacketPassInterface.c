@@ -32,7 +32,6 @@
 void _PacketPassInterface_job_operation (PacketPassInterface *i)
 {
     ASSERT(i->state == PPI_STATE_OPERATION_PENDING)
-    DebugObject_Access(&i->d_obj);
     
     // set state
     i->state = PPI_STATE_BUSY;
@@ -47,7 +46,6 @@ void _PacketPassInterface_job_requestcancel (PacketPassInterface *i)
     ASSERT(i->state == PPI_STATE_BUSY)
     ASSERT(i->cancel_requested)
     ASSERT(i->handler_requestcancel)
-    DebugObject_Access(&i->d_obj);
     
     // call handler
     i->handler_requestcancel(i->user_provider);
@@ -57,7 +55,6 @@ void _PacketPassInterface_job_requestcancel (PacketPassInterface *i)
 void _PacketPassInterface_job_done (PacketPassInterface *i)
 {
     ASSERT(i->state == PPI_STATE_DONE_PENDING)
-    DebugObject_Access(&i->d_obj);
     
     // set state
     i->state = PPI_STATE_NONE;

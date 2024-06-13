@@ -43,7 +43,6 @@
 
 #include <misc/debug.h>
 #include <system/BReactor.h>
-#include <base/DebugObject.h>
 
 struct BUnixSignal_s;
 
@@ -65,7 +64,6 @@ typedef struct BUnixSignal_s {
     void *user;
     int signalfd_fd;
     BFileDescriptor signalfd_bfd;
-    DebugObject d_obj;
 } BUnixSignal;
 
 /**

@@ -37,7 +37,6 @@ LOCAL_SRC_FILES := \
 	badvpn/base/BLog.c \
 	badvpn/base/BLog_syslog.c \
 	badvpn/base/BPending.c \
-	badvpn/base/DebugObject.c \
 	badvpn/flow/BufferWriter.c \
 	badvpn/flow/PacketBuffer.c \
 	badvpn/flow/PacketPassConnector.c \

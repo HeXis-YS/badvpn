@@ -50,8 +50,6 @@ int PacketProtoFlow_Init (PacketProtoFlow *o, int input_mtu, int num_packets, Pa
         goto fail0;
     }
     
-    DebugObject_Init(&o->d_obj);
-    
     return 1;
     
 fail0:
@@ -62,8 +60,6 @@ fail0:
 
 void PacketProtoFlow_Free (PacketProtoFlow *o)
 {
-    DebugObject_Free(&o->d_obj);
-    
     // free buffer
     PacketBuffer_Free(&o->buffer);
     
@@ -75,8 +71,6 @@ void PacketProtoFlow_Free (PacketProtoFlow *o)
 }
 
 BufferWriter * PacketProtoFlow_GetInput (PacketProtoFlow *o)
-{
-    DebugObject_Access(&o->d_obj);
-    
+{    
     return &o->ainput;
 }

@@ -32,8 +32,7 @@
 void _StreamPassInterface_job_operation (StreamPassInterface *i)
 {
     ASSERT(i->state == SPI_STATE_OPERATION_PENDING)
-    DebugObject_Access(&i->d_obj);
-    
+
     // set state
     i->state = SPI_STATE_BUSY;
     
@@ -45,7 +44,6 @@ void _StreamPassInterface_job_operation (StreamPassInterface *i)
 void _StreamPassInterface_job_done (StreamPassInterface *i)
 {
     ASSERT(i->state == SPI_STATE_DONE_PENDING)
-    DebugObject_Access(&i->d_obj);
     
     // set state
     i->state = SPI_STATE_NONE;

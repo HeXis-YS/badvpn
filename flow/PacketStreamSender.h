@@ -37,7 +37,6 @@
 
 #include <stdint.h>
 
-#include <base/DebugObject.h>
 #include <flow/PacketPassInterface.h>
 #include <flow/StreamPassInterface.h>
 
@@ -46,7 +45,6 @@
  * as a stream with {@link StreamPassInterface} (i.e. it concatenates them).
  */
 typedef struct {
-    DebugObject d_obj;
     PacketPassInterface input;
     StreamPassInterface *output;
     int in_len;

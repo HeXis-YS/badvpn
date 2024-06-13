@@ -34,7 +34,6 @@
 #ifndef BADVPN_PACKETPASSINACTIVITYMONITOR_H
 #define BADVPN_PACKETPASSINACTIVITYMONITOR_H
 
-#include <base/DebugObject.h>
 #include <system/BReactor.h>
 #include <flow/PacketPassInterface.h>
 
@@ -66,7 +65,6 @@ typedef void (*PacketPassInactivityMonitor_handler) (void *user);
  *       function is invoked.
  */
 typedef struct {
-    DebugObject d_obj;
     PacketPassInterface *output;
     BReactor *reactor;
     PacketPassInactivityMonitor_handler handler;

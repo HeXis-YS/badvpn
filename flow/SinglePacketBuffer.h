@@ -38,7 +38,6 @@
 #include <stdint.h>
 
 #include <misc/debug.h>
-#include <base/DebugObject.h>
 #include <flow/PacketRecvInterface.h>
 #include <flow/PacketPassInterface.h>
 
@@ -47,7 +46,6 @@
  * than can store only a single packet.
  */
 typedef struct {
-    DebugObject d_obj;
     PacketRecvInterface *input;
     PacketPassInterface *output;
     uint8_t *buf;

@@ -44,8 +44,6 @@
 #include <stdint.h>
 
 #include <misc/debug.h>
-#include <misc/debugcounter.h>
-#include <base/DebugObject.h>
 #include <structure/LinkedList1.h>
 #include <structure/CAvl.h>
 #include <system/BTime.h>
@@ -221,10 +219,6 @@ typedef struct {
     struct epoll_event epoll_results[BSYSTEM_MAX_RESULTS]; // epoll returned events buffer
     int epoll_results_num; // number of events in the array
     int epoll_results_pos; // number of events processed so far
-    
-    DebugObject d_obj;
-    DebugCounter d_fds_counter;
-    DebugCounter d_limits_ctr;
 } BReactor;
 
 /**
@@ -413,7 +407,6 @@ typedef struct {
     int limit;
     int count;
     LinkedList1Node active_limits_list_node;
-    DebugObject d_obj;
 } BReactorLimit;
 
 /**

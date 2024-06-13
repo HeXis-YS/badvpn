@@ -217,16 +217,14 @@ static void set_pktinfo (int fd, int family)
 
 static void report_error (BDatagram *o)
 {
-    DebugError_AssertNoError(&o->d_err);
     
     // report error
-    DEBUGERROR(&o->d_err, o->handler(o->user, BDATAGRAM_EVENT_ERROR));
+    DEBUGERROR(o->handler(o->user, BDATAGRAM_EVENT_ERROR));
     return;
 }
 
 static void do_send (BDatagram *o)
 {
-    DebugError_AssertNoError(&o->d_err);
     ASSERT(o->send.inited)
     ASSERT(o->send.busy)
     ASSERT(o->send.have_addrs)
@@ -334,7 +332,6 @@ static void do_send (BDatagram *o)
 
 static void do_recv (BDatagram *o)
 {
-    DebugError_AssertNoError(&o->d_err);
     ASSERT(o->recv.inited)
     ASSERT(o->recv.busy)
     ASSERT(o->recv.started)
@@ -414,9 +411,6 @@ static void do_recv (BDatagram *o)
 
 static void fd_handler (BDatagram *o, int events)
 {
-    DebugObject_Access(&o->d_obj);
-    DebugError_AssertNoError(&o->d_err);
-    
     // clear handled events
     o->wait_events &= ~events;
     BReactor_SetFileDescriptorEvents(o->reactor, &o->bfd, o->wait_events);
@@ -461,8 +455,6 @@ static void fd_handler (BDatagram *o, int events)
 
 static void send_job_handler (BDatagram *o)
 {
-    DebugObject_Access(&o->d_obj);
-    DebugError_AssertNoError(&o->d_err);
     ASSERT(o->send.inited)
     ASSERT(o->send.busy)
     ASSERT(o->send.have_addrs)
@@ -473,8 +465,6 @@ static void send_job_handler (BDatagram *o)
 
 static void recv_job_handler (BDatagram *o)
 {
-    DebugObject_Access(&o->d_obj);
-    DebugError_AssertNoError(&o->d_err);
     ASSERT(o->recv.inited)
     ASSERT(o->recv.busy)
     ASSERT(o->recv.started)
@@ -485,8 +475,6 @@ static void recv_job_handler (BDatagram *o)
 
 static void send_if_handler_send (BDatagram *o, uint8_t *data, int data_len)
 {
-    DebugObject_Access(&o->d_obj);
-    DebugError_AssertNoError(&o->d_err);
     ASSERT(o->send.inited)
     ASSERT(!o->send.busy)
     ASSERT(data_len >= 0)
@@ -510,8 +498,6 @@ static void send_if_handler_send (BDatagram *o, uint8_t *data, int data_len)
 
 static void recv_if_handler_recv (BDatagram *o, uint8_t *data)
 {
-    DebugObject_Access(&o->d_obj);
-    DebugError_AssertNoError(&o->d_err);
     ASSERT(o->recv.inited)
     ASSERT(!o->recv.busy)
     
@@ -594,8 +580,6 @@ int BDatagram_Init (BDatagram *o, int family, BReactor *reactor, void *user,
     o->send.inited = 0;
     o->recv.inited = 0;
     
-    DebugError_Init(&o->d_err, BReactor_PendingGroup(o->reactor));
-    DebugObject_Init(&o->d_obj);
     return 1;
     
 fail1:
@@ -608,8 +592,6 @@ fail0:
 
 void BDatagram_Free (BDatagram *o)
 {
-    DebugObject_Free(&o->d_obj);
-    DebugError_Free(&o->d_err);
     ASSERT(!o->recv.inited)
     ASSERT(!o->send.inited)
     
@@ -628,8 +610,6 @@ void BDatagram_Free (BDatagram *o)
 
 int BDatagram_Bind (BDatagram *o, BAddr addr)
 {
-    DebugObject_Access(&o->d_obj);
-    DebugError_AssertNoError(&o->d_err);
     ASSERT(BDatagram_AddressFamilySupported(addr.type))
     
     // translate address
@@ -658,8 +638,6 @@ int BDatagram_Bind (BDatagram *o, BAddr addr)
 
 void BDatagram_SetSendAddrs (BDatagram *o, BAddr remote_addr, BIPAddr local_addr)
 {
-    DebugObject_Access(&o->d_obj);
-    DebugError_AssertNoError(&o->d_err);
     ASSERT(BDatagram_AddressFamilySupported(remote_addr.type))
     ASSERT(local_addr.type == BADDR_TYPE_NONE || BDatagram_AddressFamilySupported(local_addr.type))
     
@@ -680,8 +658,6 @@ void BDatagram_SetSendAddrs (BDatagram *o, BAddr remote_addr, BIPAddr local_addr
 
 int BDatagram_GetLastReceiveAddrs (BDatagram *o, BAddr *remote_addr, BIPAddr *local_addr)
 {
-    DebugObject_Access(&o->d_obj);
-    
     if (!o->recv.have_addrs) {
         return 0;
     }
@@ -693,8 +669,6 @@ int BDatagram_GetLastReceiveAddrs (BDatagram *o, BAddr *remote_addr, BIPAddr *lo
 
 int BDatagram_GetLocalAddr (BDatagram *o, BAddr *local_addr)
 {
-    DebugObject_Access(&o->d_obj);
-    
     struct sys_addr sysaddr;
     sysaddr.len = sizeof(sysaddr.addr);
     if (getsockname(o->fd, &sysaddr.addr.generic, &sysaddr.len) != 0) {
@@ -717,14 +691,11 @@ int BDatagram_GetLocalAddr (BDatagram *o, BAddr *local_addr)
 
 int BDatagram_GetFd (BDatagram *o)
 {
-    DebugObject_Access(&o->d_obj);
-    
     return o->fd;
 }
 
 int BDatagram_SetReuseAddr (BDatagram *o, int reuse)
 {
-    DebugObject_Access(&o->d_obj);
     ASSERT(reuse == 0 || reuse == 1)
     
     if (setsockopt(o->fd, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse)) < 0) {
@@ -736,8 +707,6 @@ int BDatagram_SetReuseAddr (BDatagram *o, int reuse)
 
 void BDatagram_SendAsync_Init (BDatagram *o, int mtu)
 {
-    DebugObject_Access(&o->d_obj);
-    DebugError_AssertNoError(&o->d_err);
     ASSERT(!o->send.inited)
     ASSERT(mtu >= 0)
     
@@ -759,7 +728,6 @@ void BDatagram_SendAsync_Init (BDatagram *o, int mtu)
 
 void BDatagram_SendAsync_Free (BDatagram *o)
 {
-    DebugObject_Access(&o->d_obj);
     ASSERT(o->send.inited)
     
     // update events
@@ -778,7 +746,6 @@ void BDatagram_SendAsync_Free (BDatagram *o)
 
 PacketPassInterface * BDatagram_SendAsync_GetIf (BDatagram *o)
 {
-    DebugObject_Access(&o->d_obj);
     ASSERT(o->send.inited)
     
     return &o->send.iface;
@@ -786,8 +753,6 @@ PacketPassInterface * BDatagram_SendAsync_GetIf (BDatagram *o)
 
 void BDatagram_RecvAsync_Init (BDatagram *o, int mtu)
 {
-    DebugObject_Access(&o->d_obj);
-    DebugError_AssertNoError(&o->d_err);
     ASSERT(!o->recv.inited)
     ASSERT(mtu >= 0)
     
@@ -809,7 +774,6 @@ void BDatagram_RecvAsync_Init (BDatagram *o, int mtu)
 
 void BDatagram_RecvAsync_Free (BDatagram *o)
 {
-    DebugObject_Access(&o->d_obj);
     ASSERT(o->recv.inited)
     
     // update events
@@ -828,7 +792,6 @@ void BDatagram_RecvAsync_Free (BDatagram *o)
 
 PacketRecvInterface * BDatagram_RecvAsync_GetIf (BDatagram *o)
 {
-    DebugObject_Access(&o->d_obj);
     ASSERT(o->recv.inited)
     
     return &o->recv.iface;

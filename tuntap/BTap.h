@@ -42,7 +42,6 @@
 #include <net/if.h>
 #include <misc/debug.h>
 #include <misc/debugerror.h>
-#include <base/DebugObject.h>
 #include <system/BReactor.h>
 #include <flow/PacketRecvInterface.h>
 
@@ -70,8 +69,6 @@ typedef struct {
     BFileDescriptor bfd;
     int poll_events;
     
-    DebugError d_err;
-    DebugObject d_obj;
 } BTap;
 
 /**

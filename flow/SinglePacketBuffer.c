@@ -36,15 +36,11 @@
 
 static void input_handler_done (SinglePacketBuffer *o, int in_len)
 {
-    DebugObject_Access(&o->d_obj);
-    
     PacketPassInterface_Sender_Send(o->output, o->buf, in_len);
 }
 
 static void output_handler_done (SinglePacketBuffer *o)
 {
-    DebugObject_Access(&o->d_obj);
-    
     PacketRecvInterface_Receiver_Recv(o->input, o->buf);
 }
 
@@ -70,8 +66,6 @@ int SinglePacketBuffer_Init (SinglePacketBuffer *o, PacketRecvInterface *input, 
     // schedule receive
     PacketRecvInterface_Receiver_Recv(o->input, o->buf);
     
-    DebugObject_Init(&o->d_obj);
-    
     return 1;
     
 fail1:
@@ -80,8 +74,6 @@ fail1:
 
 void SinglePacketBuffer_Free (SinglePacketBuffer *o)
 {
-    DebugObject_Free(&o->d_obj);
-    
     // free buffer
     BFree(o->buf);
 }

@@ -716,7 +716,6 @@ fail1:
     BLog(BLOG_NOTICE, "exiting");
     BLog_Free();
 fail0:
-    DebugObjectGlobal_Finish();
 
     return 1;
 }

@@ -38,7 +38,6 @@
 
 #include <protocol/packetproto.h>
 #include <misc/debug.h>
-#include <base/DebugObject.h>
 #include <flow/StreamRecvInterface.h>
 #include <flow/PacketPassInterface.h>
 
@@ -60,7 +59,6 @@ typedef struct {
     int buf_start;
     int buf_used;
     uint8_t *buf;
-    DebugObject d_obj;
 } PacketProtoDecoder;
 
 /**

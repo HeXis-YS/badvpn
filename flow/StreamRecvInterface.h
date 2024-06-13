@@ -43,7 +43,6 @@
 #include <stddef.h>
 
 #include <misc/debug.h>
-#include <base/DebugObject.h>
 #include <base/BPending.h>
 
 #define SRI_STATE_NONE 1
@@ -75,8 +74,6 @@ typedef struct {
     
     // state
     int state;
-    
-    DebugObject d_obj;
 } StreamRecvInterface;
 
 static void StreamRecvInterface_Init (StreamRecvInterface *i, StreamRecvInterface_handler_recv handler_operation, void *user, BPendingGroup *pg);
@@ -107,14 +104,10 @@ void StreamRecvInterface_Init (StreamRecvInterface *i, StreamRecvInterface_handl
     
     // set state
     i->state = SRI_STATE_NONE;
-    
-    DebugObject_Init(&i->d_obj);
 }
 
 void StreamRecvInterface_Free (StreamRecvInterface *i)
 {
-    DebugObject_Free(&i->d_obj);
-    
     // free jobs
     BPending_Free(&i->job_done);
     BPending_Free(&i->job_operation);
@@ -125,7 +118,6 @@ void StreamRecvInterface_Done (StreamRecvInterface *i, int data_len)
     ASSERT(i->state == SRI_STATE_BUSY)
     ASSERT(data_len > 0)
     ASSERT(data_len <= i->job_operation_len)
-    DebugObject_Access(&i->d_obj);
     
     // schedule done
     i->job_done_len = data_len;
@@ -139,7 +131,6 @@ void StreamRecvInterface_Receiver_Init (StreamRecvInterface *i, StreamRecvInterf
 {
     ASSERT(handler_done)
     ASSERT(!i->handler_done)
-    DebugObject_Access(&i->d_obj);
     
     i->handler_done = handler_done;
     i->user_user = user;
@@ -151,7 +142,6 @@ void StreamRecvInterface_Receiver_Recv (StreamRecvInterface *i, uint8_t *data, i
     ASSERT(data)
     ASSERT(i->state == SRI_STATE_NONE)
     ASSERT(i->handler_done)
-    DebugObject_Access(&i->d_obj);
     
     // schedule operation
     i->job_operation_data = data;

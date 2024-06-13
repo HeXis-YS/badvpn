@@ -41,7 +41,6 @@ void input_handler_done (PacketBuffer *buf, int in_len)
 {
     ASSERT(in_len >= 0)
     ASSERT(in_len <= buf->input_mtu)
-    DebugObject_Access(&buf->d_obj);
     
     // remember if buffer is empty
     int was_empty = (buf->buf.output_avail < 0);
@@ -62,8 +61,6 @@ void input_handler_done (PacketBuffer *buf, int in_len)
 
 void output_handler_done (PacketBuffer *buf)
 {
-    DebugObject_Access(&buf->d_obj);
-    
     // remember if buffer is full
     int was_full = (buf->buf.input_avail < buf->input_mtu);
     
@@ -114,8 +111,6 @@ int PacketBuffer_Init (PacketBuffer *buf, PacketRecvInterface *input, PacketPass
     // schedule receive
     PacketRecvInterface_Receiver_Recv(buf->input, buf->buf.input_dest);
     
-    DebugObject_Init(&buf->d_obj);
-    
     return 1;
     
 fail0:
@@ -124,8 +119,6 @@ fail0:
 
 void PacketBuffer_Free (PacketBuffer *buf)
 {
-    DebugObject_Free(&buf->d_obj);
-    
     // free buffer
     BFree(buf->buf_data);
 }

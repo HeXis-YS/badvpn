@@ -31,8 +31,6 @@
 
 static void input_handler_send (PacketPassInactivityMonitor *o, uint8_t *data, int data_len)
 {
-    DebugObject_Access(&o->d_obj);
-    
     // schedule send
     PacketPassInterface_Sender_Send(o->output, data, data_len);
     
@@ -42,16 +40,12 @@ static void input_handler_send (PacketPassInactivityMonitor *o, uint8_t *data, i
 
 static void input_handler_requestcancel (PacketPassInactivityMonitor *o)
 {
-    DebugObject_Access(&o->d_obj);
-    
     // request cancel
     PacketPassInterface_Sender_RequestCancel(o->output);
 }
 
 static void output_handler_done (PacketPassInactivityMonitor *o)
 {
-    DebugObject_Access(&o->d_obj);
-    
     // output no longer busy, restart timer
     BReactor_SetTimer(o->reactor, &o->timer);
     
@@ -61,8 +55,6 @@ static void output_handler_done (PacketPassInactivityMonitor *o)
 
 static void timer_handler (PacketPassInactivityMonitor *o)
 {
-    DebugObject_Access(&o->d_obj);
-    
     // restart timer
     BReactor_SetTimer(o->reactor, &o->timer);
     
@@ -93,14 +85,10 @@ void PacketPassInactivityMonitor_Init (PacketPassInactivityMonitor *o, PacketPas
     // init timer
     BTimer_Init(&o->timer, interval, (BTimer_handler)timer_handler, o);
     BReactor_SetTimer(o->reactor, &o->timer);
-    
-    DebugObject_Init(&o->d_obj);
 }
 
 void PacketPassInactivityMonitor_Free (PacketPassInactivityMonitor *o)
 {
-    DebugObject_Free(&o->d_obj);
-
     // free timer
     BReactor_RemoveTimer(o->reactor, &o->timer);
     
@@ -110,22 +98,16 @@ void PacketPassInactivityMonitor_Free (PacketPassInactivityMonitor *o)
 
 PacketPassInterface * PacketPassInactivityMonitor_GetInput (PacketPassInactivityMonitor *o)
 {
-    DebugObject_Access(&o->d_obj);
-    
     return &o->input;
 }
 
 void PacketPassInactivityMonitor_SetHandler (PacketPassInactivityMonitor *o, PacketPassInactivityMonitor_handler handler, void *user)
 {
-    DebugObject_Access(&o->d_obj);
-    
     o->handler = handler;
     o->user = user;
 }
 
 void PacketPassInactivityMonitor_Force (PacketPassInactivityMonitor *o)
 {
-    DebugObject_Access(&o->d_obj);
-    
     BReactor_SetTimerAfter(o->reactor, &o->timer, 0);
 }

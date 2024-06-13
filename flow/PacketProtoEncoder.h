@@ -36,7 +36,6 @@
 
 #include <stdint.h>
 
-#include <base/DebugObject.h>
 #include <flow/PacketRecvInterface.h>
 
 /**
@@ -49,7 +48,6 @@ typedef struct {
     PacketRecvInterface *input;
     PacketRecvInterface output;
     uint8_t *output_packet;
-    DebugObject d_obj;
 } PacketProtoEncoder;
 
 /**

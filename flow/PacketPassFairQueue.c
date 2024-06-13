@@ -140,7 +140,6 @@ static void schedule_job_handler (PacketPassFairQueue *m)
 {
     ASSERT(!m->sending_flow)
     ASSERT(!m->freeing)
-    DebugObject_Access(&m->d_obj);
     
     // remove previous flow
     m->previous_flow = NULL;
@@ -157,7 +156,6 @@ static void input_handler_send (PacketPassFairQueueFlow *flow, uint8_t *data, in
     ASSERT(flow != m->sending_flow)
     ASSERT(!flow->is_queued)
     ASSERT(!m->freeing)
-    DebugObject_Access(&flow->d_obj);
     
     if (flow == m->previous_flow) {
         // remove from previous flow
@@ -257,8 +255,6 @@ int PacketPassFairQueue_Init (PacketPassFairQueue *m, PacketPassInterface *outpu
     // init schedule job
     BPending_Init(&m->schedule_job, m->pg, (BPending_handler)schedule_job_handler, m);
     
-    DebugObject_Init(&m->d_obj);
-    DebugCounter_Init(&m->d_ctr);
     return 1;
     
 fail0:
@@ -271,8 +267,6 @@ void PacketPassFairQueue_Free (PacketPassFairQueue *m)
     ASSERT(PacketPassFairQueue__Tree_IsEmpty(&m->queued_tree))
     ASSERT(!m->previous_flow)
     ASSERT(!m->sending_flow)
-    DebugCounter_Free(&m->d_ctr);
-    DebugObject_Free(&m->d_obj);
     
     // free schedule job
     BPending_Free(&m->schedule_job);
@@ -280,7 +274,6 @@ void PacketPassFairQueue_Free (PacketPassFairQueue *m)
 
 void PacketPassFairQueue_PrepareFree (PacketPassFairQueue *m)
 {
-    DebugObject_Access(&m->d_obj);
     
     // set freeing
     m->freeing = 1;
@@ -288,15 +281,12 @@ void PacketPassFairQueue_PrepareFree (PacketPassFairQueue *m)
 
 int PacketPassFairQueue_GetMTU (PacketPassFairQueue *m)
 {
-    DebugObject_Access(&m->d_obj);
-    
     return PacketPassInterface_GetMTU(m->output);
 }
 
 void PacketPassFairQueueFlow_Init (PacketPassFairQueueFlow *flow, PacketPassFairQueue *m)
 {
     ASSERT(!m->freeing)
-    DebugObject_Access(&m->d_obj);
     
     // init arguments
     flow->m = m;
@@ -315,9 +305,6 @@ void PacketPassFairQueueFlow_Init (PacketPassFairQueueFlow *flow, PacketPassFair
     
     // is not queued
     flow->is_queued = 0;
-    
-    DebugObject_Init(&flow->d_obj);
-    DebugCounter_Increment(&m->d_ctr);
 }
 
 void PacketPassFairQueueFlow_Free (PacketPassFairQueueFlow *flow)
@@ -325,8 +312,6 @@ void PacketPassFairQueueFlow_Free (PacketPassFairQueueFlow *flow)
     PacketPassFairQueue *m = flow->m;
     
     ASSERT(m->freeing || flow != m->sending_flow)
-    DebugCounter_Decrement(&m->d_ctr);
-    DebugObject_Free(&flow->d_obj);
     
     // remove from current flow
     if (flow == m->sending_flow) {
@@ -356,7 +341,6 @@ void PacketPassFairQueueFlow_AssertFree (PacketPassFairQueueFlow *flow)
     B_USE(m)
     
     ASSERT(m->freeing || flow != m->sending_flow)
-    DebugObject_Access(&flow->d_obj);
 }
 
 int PacketPassFairQueueFlow_IsBusy (PacketPassFairQueueFlow *flow)
@@ -364,7 +348,6 @@ int PacketPassFairQueueFlow_IsBusy (PacketPassFairQueueFlow *flow)
     PacketPassFairQueue *m = flow->m;
     
     ASSERT(!m->freeing)
-    DebugObject_Access(&flow->d_obj);
     
     return (flow == m->sending_flow);
 }
@@ -377,7 +360,6 @@ void PacketPassFairQueueFlow_RequestCancel (PacketPassFairQueueFlow *flow)
     ASSERT(m->use_cancel)
     ASSERT(!m->freeing)
     ASSERT(!BPending_IsSet(&m->schedule_job))
-    DebugObject_Access(&flow->d_obj);
     
     // request cancel
     PacketPassInterface_Sender_RequestCancel(m->output);
@@ -390,7 +372,6 @@ void PacketPassFairQueueFlow_SetBusyHandler (PacketPassFairQueueFlow *flow, Pack
     
     ASSERT(flow == m->sending_flow)
     ASSERT(!m->freeing)
-    DebugObject_Access(&flow->d_obj);
     
     // set handler
     flow->handler_busy = handler;
@@ -399,7 +380,5 @@ void PacketPassFairQueueFlow_SetBusyHandler (PacketPassFairQueueFlow *flow, Pack
 
 PacketPassInterface * PacketPassFairQueueFlow_GetInput (PacketPassFairQueueFlow *flow)
 {
-    DebugObject_Access(&flow->d_obj);
-    
     return &flow->input;
 }

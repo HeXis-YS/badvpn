@@ -41,7 +41,6 @@ static void output_handler_recv (PacketProtoEncoder *enc, uint8_t *data)
 {
     ASSERT(!enc->output_packet)
     ASSERT(data)
-    DebugObject_Access(&enc->d_obj);
     
     // schedule receive
     enc->output_packet = data;
@@ -51,7 +50,6 @@ static void output_handler_recv (PacketProtoEncoder *enc, uint8_t *data)
 static void input_handler_done (PacketProtoEncoder *enc, int in_len)
 {
     ASSERT(enc->output_packet)
-    DebugObject_Access(&enc->d_obj);
     
     // write length
     struct packetproto_header pp;
@@ -81,21 +79,15 @@ void PacketProtoEncoder_Init (PacketProtoEncoder *enc, PacketRecvInterface *inpu
     
     // set no output packet
     enc->output_packet = NULL;
-    
-    DebugObject_Init(&enc->d_obj);
 }
 
 void PacketProtoEncoder_Free (PacketProtoEncoder *enc)
 {
-    DebugObject_Free(&enc->d_obj);
-
     // free input
     PacketRecvInterface_Free(&enc->output);
 }
 
 PacketRecvInterface * PacketProtoEncoder_GetOutput (PacketProtoEncoder *enc)
 {
-    DebugObject_Access(&enc->d_obj);
-    
     return &enc->output;
 }

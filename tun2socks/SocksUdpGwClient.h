@@ -30,7 +30,6 @@
 #define BADVPN_TUN2SOCKS_SOCKSUDPGWCLIENT_H
 
 #include <misc/debug.h>
-#include <base/DebugObject.h>
 #include <system/BReactor.h>
 #ifdef __ANDROID__
 #include <protocol/udpgw_proto.h>
@@ -95,7 +94,6 @@ typedef struct {
     BSocksClient socks_client;
     int socks_up;
 #endif
-    DebugObject d_obj;
 } SocksUdpGwClient;
 
 #ifdef __ANDROID__

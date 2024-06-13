@@ -108,7 +108,6 @@ static void input_handler_done (PacketProtoDecoder *enc, int data_len)
 {
     ASSERT(data_len > 0)
     ASSERT(data_len <= enc->buf_size - (enc->buf_start + enc->buf_used))
-    DebugObject_Access(&enc->d_obj);
     
     // update buffer
     enc->buf_used += data_len;
@@ -120,8 +119,6 @@ static void input_handler_done (PacketProtoDecoder *enc, int data_len)
 
 void output_handler_done (PacketProtoDecoder *enc)
 {
-    DebugObject_Access(&enc->d_obj);
-    
     // process data
     process_data(enc);
     return;
@@ -157,8 +154,6 @@ int PacketProtoDecoder_Init (PacketProtoDecoder *enc, StreamRecvInterface *input
     // start receiving
     StreamRecvInterface_Receiver_Recv(enc->input, enc->buf, enc->buf_size);
     
-    DebugObject_Init(&enc->d_obj);
-    
     return 1;
     
 fail0:
@@ -167,16 +162,12 @@ fail0:
 
 void PacketProtoDecoder_Free (PacketProtoDecoder *enc)
 {
-    DebugObject_Free(&enc->d_obj);
-    
     // free buffer
     free(enc->buf);
 }
 
 void PacketProtoDecoder_Reset (PacketProtoDecoder *enc)
 {
-    DebugObject_Access(&enc->d_obj);
-    
     enc->buf_start += enc->buf_used;
     enc->buf_used = 0;
 }

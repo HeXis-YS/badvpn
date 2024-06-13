@@ -66,8 +66,6 @@ static void dgram_handler (SocksUdpGwClient_connection *o, int event)
     SocksUdpGwClient *client = o->client;
     ASSERT(client);
 
-    DebugObject_Access(&client->d_obj);
-
     BLog(BLOG_INFO, "UDP error");
 }
 
@@ -75,8 +73,6 @@ static void dgram_handler_received (SocksUdpGwClient_connection *o, uint8_t *dat
 {
     SocksUdpGwClient *client = o->client;
     ASSERT(client);
-
-    DebugObject_Access(&client->d_obj);
     ASSERT(data_len >= 0)
     ASSERT(data_len <= client->udpgw_mtu)
 
@@ -427,7 +423,6 @@ fail0:
 
 static void reconnect_timer_handler (SocksUdpGwClient *o)
 {
-    DebugObject_Access(&o->d_obj);
     ASSERT(!o->have_socks)
 
     // try connecting
@@ -436,7 +431,6 @@ static void reconnect_timer_handler (SocksUdpGwClient *o)
 
 static void socks_client_handler (SocksUdpGwClient *o, int event)
 {
-    DebugObject_Access(&o->d_obj);
     ASSERT(o->have_socks)
 
     switch (event) {
@@ -479,7 +473,6 @@ static void socks_client_handler (SocksUdpGwClient *o, int event)
 
 static void udpgw_handler_servererror (SocksUdpGwClient *o)
 {
-    DebugObject_Access(&o->d_obj);
     ASSERT(o->have_socks)
     ASSERT(o->socks_up)
 
@@ -494,8 +487,6 @@ static void udpgw_handler_servererror (SocksUdpGwClient *o)
 
 static void udpgw_handler_received (SocksUdpGwClient *o, BAddr local_addr, BAddr remote_addr, const uint8_t *data, int data_len)
 {
-    DebugObject_Access(&o->d_obj);
-
     // submit to user
     o->handler_received(o->user, local_addr, remote_addr, data, data_len);
     return;
@@ -559,7 +550,6 @@ int SocksUdpGwClient_Init (SocksUdpGwClient *o, int udp_mtu, int max_connections
     try_connect(o);
 #endif
 
-    DebugObject_Init(&o->d_obj);
     return 1;
 
 fail0:
@@ -568,8 +558,6 @@ fail0:
 
 void SocksUdpGwClient_Free (SocksUdpGwClient *o)
 {
-    DebugObject_Free(&o->d_obj);
-
 #ifdef __ANDROID__
     // free connections
     while (!LinkedList1_IsEmpty(&o->connections_list)) {
@@ -592,10 +580,8 @@ void SocksUdpGwClient_Free (SocksUdpGwClient *o)
 
 void SocksUdpGwClient_SubmitPacket (SocksUdpGwClient *o, BAddr local_addr, BAddr remote_addr, int is_dns, const uint8_t *data, int data_len)
 {
-    DebugObject_Access(&o->d_obj);
-    // see asserts in UdpGwClient_SubmitPacket
-
 #ifdef __ANDROID__
+    // see asserts in UdpGwClient_SubmitPacket
     ASSERT(local_addr.type == BADDR_TYPE_IPV4 || local_addr.type == BADDR_TYPE_IPV6)
     ASSERT(remote_addr.type == BADDR_TYPE_IPV4 || remote_addr.type == BADDR_TYPE_IPV6)
     ASSERT(data_len >= 0)
