@@ -39,8 +39,8 @@
 #ifndef BADVPN_MISC_BYTEORDER_H
 #define BADVPN_MISC_BYTEORDER_H
 
-#if (defined(BADVPN_LITTLE_ENDIAN) + defined(BADVPN_BIG_ENDIAN)) != 1
-#error Unknown byte order or too many byte orders
+#ifndef BADVPN_LITTLE_ENDIAN
+#error BADVPN_LITTLE_ENDIAN is required
 #endif
 
 #include <stdint.h>
@@ -87,8 +87,6 @@ static uint8_t htol8 (uint8_t x)
     return x;
 }
 
-#if defined(BADVPN_LITTLE_ENDIAN)
-
 static uint16_t hton16 (uint16_t x)
 {
     return badvpn_reverse16(x);
@@ -118,40 +116,6 @@ static uint64_t htol64 (uint64_t x)
 {
     return x;
 }
-
-#elif defined(BADVPN_BIG_ENDIAN)
-
-static uint16_t hton16 (uint16_t x)
-{
-    return x;
-}
-
-static uint32_t hton32 (uint32_t x)
-{
-    return x;
-}
-
-static uint64_t hton64 (uint64_t x)
-{
-    return x;
-}
-
-static uint16_t htol16 (uint16_t x)
-{
-    return badvpn_reverse16(x);
-}
-
-static uint32_t htol32 (uint32_t x)
-{
-    return badvpn_reverse32(x);
-}
-
-static uint64_t htol64 (uint64_t x)
-{
-    return badvpn_reverse64(x);
-}
-
-#endif
 
 static uint8_t ntoh8 (uint8_t x)
 {
