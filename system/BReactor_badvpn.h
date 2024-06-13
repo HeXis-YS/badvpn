@@ -35,17 +35,11 @@
 #ifndef BADVPN_SYSTEM_BREACTOR_H
 #define BADVPN_SYSTEM_BREACTOR_H
 
-#if (defined(BADVPN_USE_EPOLL) + defined(BADVPN_USE_POLL)) != 1
-#error Unknown event backend or too many event backends
+#ifndef BADVPN_USE_EPOLL
+#error BADVPN_USE_EPOLL is required
 #endif
 
-#ifdef BADVPN_USE_EPOLL
 #include <sys/epoll.h>
-#endif
-
-#ifdef BADVPN_USE_POLL
-#include <poll.h>
-#endif
 
 #include <stdint.h>
 
@@ -185,14 +179,7 @@ typedef struct BFileDescriptor_t {
     int active;
     int waitEvents;
     
-    #ifdef BADVPN_USE_EPOLL
     struct BFileDescriptor_t **epoll_returned_ptr;
-    #endif
-    
-    #ifdef BADVPN_USE_POLL
-    LinkedList1Node poll_enabled_fds_list_node;
-    int poll_returned_index;
-    #endif
 } BFileDescriptor;
 
 /**
@@ -230,21 +217,10 @@ typedef struct {
     // limits
     LinkedList1 active_limits_list;
     
-    #ifdef BADVPN_USE_EPOLL
     int efd; // epoll fd
     struct epoll_event epoll_results[BSYSTEM_MAX_RESULTS]; // epoll returned events buffer
     int epoll_results_num; // number of events in the array
     int epoll_results_pos; // number of events processed so far
-    #endif
-    
-    #ifdef BADVPN_USE_POLL
-    LinkedList1 poll_enabled_fds_list;
-    int poll_num_enabled_fds;
-    int poll_results_num;
-    int poll_results_pos;
-    struct pollfd *poll_results_pollfds;
-    BFileDescriptor **poll_results_bfds;
-    #endif
     
     DebugObject d_obj;
     DebugCounter d_fds_counter;

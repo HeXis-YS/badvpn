@@ -141,8 +141,6 @@ static void move_first_timers (BReactor *bsys)
     }
 }
 
-#ifdef BADVPN_USE_EPOLL
-
 static void set_epoll_fd_pointers (BReactor *bsys)
 {
     // Write pointers to our entry pointers into file descriptors.
@@ -158,46 +156,16 @@ static void set_epoll_fd_pointers (BReactor *bsys)
     }
 }
 
-#endif
-
-#ifdef BADVPN_USE_POLL
-
-static void set_poll_fd_pointers (BReactor *bsys)
-{
-    for (int i = 0; i < bsys->poll_results_num; i++) {
-        BFileDescriptor *bfd = bsys->poll_results_bfds[i];
-        ASSERT(bfd)
-        ASSERT(bfd->active)
-        ASSERT(bfd->poll_returned_index == -1)
-        bfd->poll_returned_index = i;
-    }
-}
-
-#endif
-
 static void wait_for_events (BReactor *bsys)
 {
     // must have processed all pending events
     ASSERT(!BPendingGroup_HasJobs(&bsys->pending_jobs))
     ASSERT(LinkedList1_IsEmpty(&bsys->timers_expired_list))
-    #ifdef BADVPN_USE_EPOLL
     ASSERT(bsys->epoll_results_pos == bsys->epoll_results_num)
-    #endif
-    #ifdef BADVPN_USE_POLL
-    ASSERT(bsys->poll_results_pos == bsys->poll_results_num)
-    #endif
 
     // clean up epoll results
-    #ifdef BADVPN_USE_EPOLL
     bsys->epoll_results_num = 0;
     bsys->epoll_results_pos = 0;
-    #endif
-    
-    // clean up poll results
-    #ifdef BADVPN_USE_POLL
-    bsys->poll_results_num = 0;
-    bsys->poll_results_pos = 0;
-    #endif
     
     // timeout vars
     int have_timeout = 0;
@@ -233,10 +201,7 @@ static void wait_for_events (BReactor *bsys)
             timeout_rel_trunc = timeout_rel;
         }
         
-        // perform wait
-        
-        #ifdef BADVPN_USE_EPOLL
-        
+        // perform wait        
         if (have_timeout) {
             if (timeout_rel_trunc > INT_MAX) {
                 timeout_rel_trunc = INT_MAX;
@@ -270,80 +235,6 @@ static void wait_for_events (BReactor *bsys)
             }
             break;
         }
-        
-        #endif
-        
-        #ifdef BADVPN_USE_POLL
-        
-        if (have_timeout) {
-            if (timeout_rel_trunc > INT_MAX) {
-                timeout_rel_trunc = INT_MAX;
-            }
-        }
-        
-        ASSERT(bsys->poll_num_enabled_fds >= 0)
-        ASSERT(bsys->poll_num_enabled_fds <= BSYSTEM_MAX_POLL_FDS)
-        int num_fds = 0;
-        
-        LinkedList1Node *list_node = LinkedList1_GetFirst(&bsys->poll_enabled_fds_list);
-        while (list_node) {
-            BFileDescriptor *bfd = UPPER_OBJECT(list_node, BFileDescriptor, poll_enabled_fds_list_node);
-            ASSERT(bfd->active)
-            ASSERT(bfd->poll_returned_index == -1)
-            
-            // calculate poll events
-            int pevents = 0;
-            if ((bfd->waitEvents & BREACTOR_READ)) {
-                pevents |= POLLIN;
-            }
-            if ((bfd->waitEvents & BREACTOR_WRITE)) {
-                pevents |= POLLOUT;
-            }
-            
-            // write pollfd entry
-            struct pollfd *pfd = &bsys->poll_results_pollfds[num_fds];
-            pfd->fd = bfd->fd;
-            pfd->events = pevents;
-            pfd->revents = 0;
-            
-            // write BFileDescriptor reference entry
-            bsys->poll_results_bfds[num_fds] = bfd;
-            
-            // increment number of fds in array
-            num_fds++;
-            
-            list_node = LinkedList1Node_Next(list_node);
-        }
-        
-        BLog(BLOG_DEBUG, "Calling poll");
-        
-        int waitres = poll(bsys->poll_results_pollfds, num_fds, (have_timeout ? timeout_rel_trunc : -1));
-        if (waitres < 0) {
-            int error = errno;
-            if (error == EINTR) {
-                BLog(BLOG_DEBUG, "poll interrupted");
-                goto try_again;
-            }
-            perror("poll");
-            ASSERT_FORCE(0)
-        }
-        
-        ASSERT_FORCE(!(waitres == 0) || have_timeout)
-        
-        if (waitres != 0 || timeout_rel_trunc == timeout_rel) {
-            if (waitres != 0) {
-                BLog(BLOG_DEBUG, "poll returned %d file descriptors", waitres);
-                bsys->poll_results_num = num_fds;
-                bsys->poll_results_pos = 0;
-                set_poll_fd_pointers(bsys);
-            } else {
-                BLog(BLOG_DEBUG, "poll timed out");
-                move_first_timers(bsys);
-            }
-            break;
-        }
-        
-        #endif
         
     try_again:
         if (have_timeout) {
@@ -421,8 +312,6 @@ int BReactor_Init (BReactor *bsys)
     // init limits
     LinkedList1_Init(&bsys->active_limits_list);
     
-    #ifdef BADVPN_USE_EPOLL
-    
     // create epoll fd
     if ((bsys->efd = epoll_create(10)) < 0) {
         BLog(BLOG_ERROR, "epoll_create failed");
@@ -433,42 +322,12 @@ int BReactor_Init (BReactor *bsys)
     bsys->epoll_results_num = 0;
     bsys->epoll_results_pos = 0;
     
-    #endif
-    
-    #ifdef BADVPN_USE_POLL
-    
-    // init enabled fds list
-    LinkedList1_Init(&bsys->poll_enabled_fds_list);
-    
-    // set zero enabled fds
-    bsys->poll_num_enabled_fds = 0;
-    
-    // allocate results arrays
-    if (!(bsys->poll_results_pollfds = BAllocArray(BSYSTEM_MAX_POLL_FDS, sizeof(bsys->poll_results_pollfds[0])))) {
-        BLog(BLOG_ERROR, "BAllocArray failed");
-        goto fail0;
-    }
-    if (!(bsys->poll_results_bfds = BAllocArray(BSYSTEM_MAX_POLL_FDS, sizeof(bsys->poll_results_bfds[0])))) {
-        BLog(BLOG_ERROR, "BAllocArray failed");
-        goto fail1;
-    }
-    
-    // init results array
-    bsys->poll_results_num = 0;
-    bsys->poll_results_pos = 0;
-    
-    #endif
-    
     DebugObject_Init(&bsys->d_obj);
     DebugCounter_Init(&bsys->d_fds_counter);
     DebugCounter_Init(&bsys->d_limits_ctr);
     
     return 1;
     
-    #ifdef BADVPN_USE_POLL
-fail1:
-    BFree(bsys->poll_results_pollfds);
-    #endif
 fail0:
     BPendingGroup_Free(&bsys->pending_jobs);
     BLog(BLOG_ERROR, "Reactor failed to initialize");
@@ -487,27 +346,11 @@ void BReactor_Free (BReactor *bsys)
     DebugObject_Free(&bsys->d_obj);
     DebugCounter_Free(&bsys->d_fds_counter);
     DebugCounter_Free(&bsys->d_limits_ctr);
-    #ifdef BADVPN_USE_POLL
-    ASSERT(bsys->poll_num_enabled_fds == 0)
-    ASSERT(LinkedList1_IsEmpty(&bsys->poll_enabled_fds_list))
-    #endif
     
     BLog(BLOG_DEBUG, "Reactor freeing");
     
-    #ifdef BADVPN_USE_EPOLL
-    
     // close epoll fd
     ASSERT_FORCE(close(bsys->efd) == 0)
-    
-    #endif
-    
-    #ifdef BADVPN_USE_POLL
-    
-    // free results arrays
-    BFree(bsys->poll_results_bfds);
-    BFree(bsys->poll_results_pollfds);
-    
-    #endif
     
     // free jobs
     BPendingGroup_Free(&bsys->pending_jobs);
@@ -546,8 +389,6 @@ int BReactor_Exec (BReactor *bsys)
             }
             continue;
         }
-        
-        #ifdef BADVPN_USE_EPOLL
         
         // dispatch file descriptor
         if (bsys->epoll_results_pos < bsys->epoll_results_num) {
@@ -593,51 +434,6 @@ int BReactor_Exec (BReactor *bsys)
             bfd->handler(bfd->user, events);
             continue;
         }
-        
-        #endif
-        
-        #ifdef BADVPN_USE_POLL
-        
-        if (bsys->poll_results_pos < bsys->poll_results_num) {
-            // grab event
-            struct pollfd *pfd = &bsys->poll_results_pollfds[bsys->poll_results_pos];
-            BFileDescriptor *bfd = bsys->poll_results_bfds[bsys->poll_results_pos];
-            bsys->poll_results_pos++;
-            
-            // skip removed entry
-            if (!bfd) {
-                continue;
-            }
-            
-            ASSERT(bfd->active)
-            ASSERT(bfd->poll_returned_index == bsys->poll_results_pos - 1)
-            
-            // remove result reference
-            bfd->poll_returned_index = -1;
-            
-            // calculate events to report
-            int events = 0;
-            if ((bfd->waitEvents & BREACTOR_READ) && (pfd->revents & POLLIN)) {
-                events |= BREACTOR_READ;
-            }
-            if ((bfd->waitEvents & BREACTOR_WRITE) && (pfd->revents & POLLOUT)) {
-                events |= BREACTOR_WRITE;
-            }
-            if ((pfd->revents & POLLERR) || (pfd->revents & POLLHUP)) {
-                events |= BREACTOR_ERROR;
-            }
-            
-            if (!events) {
-                continue;
-            }
-            
-            // call handler
-            BLog(BLOG_DEBUG, "Dispatching file descriptor");
-            bfd->handler(bfd->user, events);
-            continue;
-        }
-        
-        #endif
         
         wait_for_events(bsys);
     }
@@ -745,8 +541,6 @@ int BReactor_AddFileDescriptor (BReactor *bsys, BFileDescriptor *bs)
 {
     ASSERT(!bs->active)
     
-    #ifdef BADVPN_USE_EPOLL
-    
     // add epoll entry
     struct epoll_event event;
     memset(&event, 0, sizeof(event));
@@ -760,24 +554,6 @@ int BReactor_AddFileDescriptor (BReactor *bsys, BFileDescriptor *bs)
     
     // set epoll returned pointer
     bs->epoll_returned_ptr = NULL;
-    
-    #endif
-    
-    #ifdef BADVPN_USE_POLL
-    
-    if (bsys->poll_num_enabled_fds == BSYSTEM_MAX_POLL_FDS) {
-        BLog(BLOG_ERROR, "too many fds");
-        return 0;
-    }
-    
-    // append to enabled fds list
-    LinkedList1_Append(&bsys->poll_enabled_fds_list, &bs->poll_enabled_fds_list_node);
-    bsys->poll_num_enabled_fds++;
-    
-    // set not returned
-    bs->poll_returned_index = -1;
-    
-    #endif
     
     bs->active = 1;
     bs->waitEvents = 0;
@@ -793,8 +569,6 @@ void BReactor_RemoveFileDescriptor (BReactor *bsys, BFileDescriptor *bs)
 
     bs->active = 0;
 
-    #ifdef BADVPN_USE_EPOLL
-    
     // delete epoll entry
     struct epoll_event event;
     memset(&event, 0, sizeof(event));
@@ -804,25 +578,6 @@ void BReactor_RemoveFileDescriptor (BReactor *bsys, BFileDescriptor *bs)
     if (bs->epoll_returned_ptr) {
         *bs->epoll_returned_ptr = NULL;
     }
-    
-    #endif
-    
-    #ifdef BADVPN_USE_POLL
-    
-    // invalidate results entry
-    if (bs->poll_returned_index != -1) {
-        ASSERT(bs->poll_returned_index >= bsys->poll_results_pos)
-        ASSERT(bs->poll_returned_index < bsys->poll_results_num)
-        ASSERT(bsys->poll_results_bfds[bs->poll_returned_index] == bs)
-        
-        bsys->poll_results_bfds[bs->poll_returned_index] = NULL;
-    }
-    
-    // remove from enabled fds list
-    LinkedList1_Remove(&bsys->poll_enabled_fds_list, &bs->poll_enabled_fds_list_node);
-    bsys->poll_num_enabled_fds--;
-    
-    #endif
 }
 
 void BReactor_SetFileDescriptorEvents (BReactor *bsys, BFileDescriptor *bs, int events)
@@ -833,8 +588,6 @@ void BReactor_SetFileDescriptorEvents (BReactor *bsys, BFileDescriptor *bs, int 
     if (bs->waitEvents == events) {
         return;
     }
-    
-    #ifdef BADVPN_USE_EPOLL
     
     // calculate epoll events
     int eevents = 0;
@@ -851,8 +604,6 @@ void BReactor_SetFileDescriptorEvents (BReactor *bsys, BFileDescriptor *bs, int 
     event.events = eevents;
     event.data.ptr = bs;
     ASSERT_FORCE(epoll_ctl(bsys->efd, EPOLL_CTL_MOD, bs->fd, &event) == 0)
-    
-    #endif
     
     // update events
     bs->waitEvents = events;
