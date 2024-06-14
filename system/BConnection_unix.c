@@ -225,7 +225,7 @@ static void connection_report_error (BConnection *o)
     ASSERT(o->handler)
     
     // report error
-    DEBUGERROR(o->handler(o->user, BCONNECTION_EVENT_ERROR));
+    o->handler(o->user, BCONNECTION_EVENT_ERROR);
     return;
 }
 

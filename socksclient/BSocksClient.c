@@ -65,7 +65,7 @@ static void auth_finished (BSocksClient *p);
 
 void report_error (BSocksClient *o, int error)
 {
-    DEBUGERROR(o->handler(o->user, error))
+    o->handler(o->user, error);
 }
 
 void init_control_io (BSocksClient *o)

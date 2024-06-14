@@ -27,8 +27,6 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <misc/debugerror.h>
-
 #define BDATAGRAM_SEND_LIMIT 2
 #define BDATAGRAM_RECV_LIMIT 2
 

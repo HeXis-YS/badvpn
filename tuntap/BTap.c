@@ -89,7 +89,7 @@ static void fd_handler (BTap *o, int events)
 
 void report_error (BTap *o)
 {
-    DEBUGERROR(o->handler_error(o->handler_error_user));
+    o->handler_error(o->handler_error_user);
 }
 
 void output_handler_recv (BTap *o, uint8_t *data)

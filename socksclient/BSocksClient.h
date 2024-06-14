@@ -39,7 +39,6 @@
 #include <stdbool.h>
 
 #include <misc/debug.h>
-#include <misc/debugerror.h>
 #include <misc/socks_proto.h>
 #include <misc/packed.h>
 #include <base/BPending.h>

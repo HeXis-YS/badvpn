@@ -217,9 +217,8 @@ static void set_pktinfo (int fd, int family)
 
 static void report_error (BDatagram *o)
 {
-    
     // report error
-    DEBUGERROR(o->handler(o->user, BDATAGRAM_EVENT_ERROR));
+    o->handler(o->user, BDATAGRAM_EVENT_ERROR);
     return;
 }
 
