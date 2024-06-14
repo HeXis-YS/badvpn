@@ -67,7 +67,6 @@ struct _BLog_global {
     struct _BLog_channel channels[BLOG_NUM_CHANNELS];
     _BLog_log_func log_func;
     _BLog_free_func free_func;
-    BMutex mutex;
     char logbuf[2048];
     int logbuf_pos;
 };
@@ -136,15 +135,11 @@ void BLog_Init (_BLog_log_func log_func, _BLog_free_func free_func)
     blog_global.free_func = free_func;
     blog_global.logbuf_pos = 0;
     blog_global.logbuf[0] = '\0';
-    
-    ASSERT_FORCE(BMutex_Init(&blog_global.mutex))
 }
 
 void BLog_Free (void)
 {
     ASSERT(blog_global.initialized)
-    
-    BMutex_Free(&blog_global.mutex);
     
     blog_global.free_func();
 }
@@ -170,8 +165,6 @@ int BLog_WouldLog (int channel, int level)
 void BLog_Begin (void)
 {
     ASSERT(blog_global.initialized)
-    
-    BMutex_Lock(&blog_global.mutex);
 }
 
 void BLog_AppendVarArg (const char *fmt, va_list vl)
@@ -228,8 +221,6 @@ void BLog_Finish (int channel, int level)
     
     blog_global.logbuf_pos = 0;
     blog_global.logbuf[0] = '\0';
-    
-    BMutex_Unlock(&blog_global.mutex);
 }
 
 void BLog_LogToChannelVarArg (int channel, int level, const char *fmt, va_list vl)
