@@ -120,7 +120,7 @@
 // Debugging
 // #define LWIP_DEBUG 1
 // Assertion handling
-#define LWIP_NOASSERT
+// #define LWIP_NOASSERT
 // Performance
 #define LWIP_PERF 0
 // Statistics

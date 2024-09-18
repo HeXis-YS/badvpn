@@ -8,11 +8,12 @@ ROOT_PATH := $(LOCAL_PATH)
 include $(CLEAR_VARS)
 
 LOCAL_LDFLAGS := -Wno-unused-command-line-argument
-LOCAL_LDFLAGS += -Ofast -mcpu=cortex-a55 -mtune=cortex-a55 -flto=full -fno-common -fno-plt -fno-semantic-interposition -fcf-protection=none
+LOCAL_LDFLAGS += -Ofast -mcpu=cortex-a55+crypto+ssbs -mtune=cortex-a55 -flto=full -fno-common -fno-plt -fno-semantic-interposition -fcf-protection=none
 LOCAL_LDFLAGS += -mllvm -polly -mllvm -polly-vectorizer=stripmine -mllvm -polly-ast-use-context -mllvm -polly-loopfusion-greedy -mllvm -polly-run-inliner -mllvm -polly-run-dce -mllvm -polly-2nd-level-tiling -mllvm -polly-pattern-matching-based-opts -mllvm -polly-position=before-vectorizer -mllvm -polly-invariant-load-hoisting
 LOCAL_LDFLAGS += -ftls-model=initial-exec -fno-builtin-malloc
-LOCAL_LDFLAGS += -fuse-ld=lld -s -Wl,-O2,--as-needed,--icf=all
-LOCAL_LDFLAGS += -static -Wl,-Bdynamic,-llog,-Bstatic,-ldl
+LOCAL_LDFLAGS += -fuse-ld=lld -s -Wl,-O3,--as-needed,--gc-sections,--icf=all,-z,lazy,-z,norelro,-sort-common
+# LOCAL_LDFLAGS += -static -Wl,-Bdynamic,-llog,-Bstatic,-ldl
+LOCAL_LDFLAGS += -llog -ldl
 LOCAL_LDFLAGS += -Wl,--gc-sections
 # LOCAL_LDFLAGS += -fprofile-generate=/storage/emulated/0/Android/data/com.v2ray.ang/
 
