@@ -38,27 +38,19 @@ LOCAL_SRC_FILES := \
 	badvpn/base/BLog.c \
 	badvpn/base/BLog_syslog.c \
 	badvpn/base/BPending.c \
-	badvpn/base/DebugObject.c \
 	badvpn/flow/BufferWriter.c \
 	badvpn/flow/PacketBuffer.c \
-	badvpn/flow/PacketPassConnector.c \
-	badvpn/flow/PacketPassFairQueue.c \
 	badvpn/flow/PacketPassInterface.c \
-	badvpn/flow/PacketProtoDecoder.c \
-	badvpn/flow/PacketProtoEncoder.c \
-	badvpn/flow/PacketProtoFlow.c \
 	badvpn/flow/PacketRecvInterface.c \
 	badvpn/flow/PacketStreamSender.c \
 	badvpn/flow/SinglePacketBuffer.c \
 	badvpn/flow/StreamPassInterface.c \
 	badvpn/flow/StreamRecvInterface.c \
 	badvpn/flowextra/PacketPassInactivityMonitor.c \
-	badvpn/lwip/custom/sys.c \
 	badvpn/lwip/src/core/def.c \
 	badvpn/lwip/src/core/inet_chksum.c \
 	badvpn/lwip/src/core/init.c \
 	badvpn/lwip/src/core/ip.c \
-	badvpn/lwip/src/core/ipv4/icmp.c \
 	badvpn/lwip/src/core/ipv4/ip4.c \
 	badvpn/lwip/src/core/ipv4/ip4_addr.c \
 	badvpn/lwip/src/core/ipv4/ip4_frag.c \
@@ -71,28 +63,22 @@ LOCAL_SRC_FILES := \
 	badvpn/lwip/src/core/memp.c \
 	badvpn/lwip/src/core/netif.c \
 	badvpn/lwip/src/core/pbuf.c \
-	badvpn/lwip/src/core/stats.c \
-	badvpn/lwip/src/core/sys.c \
 	badvpn/lwip/src/core/tcp.c \
 	badvpn/lwip/src/core/tcp_in.c \
 	badvpn/lwip/src/core/tcp_out.c \
 	badvpn/lwip/src/core/timeouts.c \
-	badvpn/lwip/src/core/udp.c \
 	badvpn/socks_udp_client/SocksUdpClient.c \
 	badvpn/socksclient/BSocksClient.c \
 	badvpn/system/BConnection_common.c \
 	badvpn/system/BConnection_unix.c \
-	badvpn/system/BDatagram_common.c \
 	badvpn/system/BDatagram_unix.c \
 	badvpn/system/BNetwork.c \
 	badvpn/system/BReactor_badvpn.c \
 	badvpn/system/BSignal.c \
 	badvpn/system/BTime.c \
 	badvpn/system/BUnixSignal.c \
-	badvpn/tun2socks/SocksUdpGwClient.c \
 	badvpn/tun2socks/tun2socks.c \
 	badvpn/tuntap/BTap.c \
-	badvpn/udpgw_client/UdpGwClient.c \
 	libancillary/fd_recv.c \
 	libancillary/fd_send.c \
 	mimalloc/src/static.c
