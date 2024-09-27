@@ -53,11 +53,9 @@ LOCAL_SRC_FILES := \
 	badvpn/lwip/src/core/ip.c \
 	badvpn/lwip/src/core/ipv4/ip4.c \
 	badvpn/lwip/src/core/ipv4/ip4_addr.c \
-	badvpn/lwip/src/core/ipv4/ip4_frag.c \
 	badvpn/lwip/src/core/ipv6/icmp6.c \
 	badvpn/lwip/src/core/ipv6/ip6.c \
 	badvpn/lwip/src/core/ipv6/ip6_addr.c \
-	badvpn/lwip/src/core/ipv6/ip6_frag.c \
 	badvpn/lwip/src/core/ipv6/nd6.c \
 	badvpn/lwip/src/core/mem.c \
 	badvpn/lwip/src/core/memp.c \

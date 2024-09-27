@@ -123,12 +123,6 @@
 #define MEMP_NUM_TCP_SEG                8192
 
 /**
- * MEMP_NUM_REASSDATA: the number of simultaneously IP packets queued for
- * reassembly (whole packets, not fragments!)
- */
-#define MEMP_NUM_REASSDATA              1
-
-/**
  * PBUF_POOL_SIZE: the number of buffers in the pbuf pool.
  */
 #define PBUF_POOL_SIZE                  32
@@ -154,7 +148,7 @@
  * this option does not affect outgoing packet sizes, which can be controlled
  * via IP_FRAG.
  */
-#define IP_REASSEMBLY                   1
+#define IP_REASSEMBLY                   0
 
 /**
  * IP_FRAG==1: Fragment outgoing IP packets if their size exceeds MTU. Note
@@ -162,21 +156,6 @@
  * controlled via IP_REASSEMBLY.
  */
 #define IP_FRAG                         0
-
-/**
- * IP_REASS_MAXAGE: Maximum time (in multiples of IP_TMR_INTERVAL - so seconds, normally)
- * a fragmented IP packet waits for all fragments to arrive. If not all fragments arrived
- * in this time, the whole packet is discarded.
- */
-#define IP_REASS_MAXAGE                 3
-
-/**
- * IP_REASS_MAX_PBUFS: Total maximum amount of pbufs waiting to be reassembled.
- * Since the received pbufs are enqueued, be sure to configure
- * PBUF_POOL_SIZE > IP_REASS_MAX_PBUFS so that the stack is still able to receive
- * packets even if the maximum amount of fragments is enqueued for reassembly!
- */
-#define IP_REASS_MAX_PBUFS              4
 
 /*
    ---------------------------------------
@@ -188,26 +167,15 @@
  */
 #define LWIP_IPV6                       1
 
-/** IP6_FRAG_COPYHEADER==1: for platforms where sizeof(void*) > 4, "struct
- * ip6_reass_helper" is too large to be stored in the IPv6 fragment header, and
- * will bleed into the header before it, which may be the IPv6 header or an
- * extension header. This means that for each first fragment packet, we need to
- * 1) make a copy of some IPv6 header fields (src+dest) that we need later on,
- * just in case we do overwrite part of the IPv6 header, and 2) make a copy of
- * the header data that we overwrote, so that we can restore it before either
- * completing reassembly or sending an ICMPv6 reply. The last part is true even
- * if this setting is disabled, but if it is enabled, we need to save a bit
- * more data (up to the size of a pointer) because we overwrite more. */
-#ifdef __LP64__
-#define IPV6_FRAG_COPYHEADER            1
-#else
-#define IPV6_FRAG_COPYHEADER            0
-#endif
-
 /**
  * LWIP_IPV6_FRAG==1: Fragment outgoing IPv6 packets that are too big.
  */
 #define LWIP_IPV6_FRAG                  0
+
+/**
+ * LWIP_IPV6_REASS==1: reassemble incoming IPv6 packets that fragmented
+ */
+#define LWIP_IPV6_REASS                 0
 
 /**
  * LWIP_IPV6_MLD==1: Enable multicast listener discovery protocol.
