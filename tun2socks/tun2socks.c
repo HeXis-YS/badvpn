@@ -158,7 +158,6 @@ struct {
     int socks5_udp;
 #ifdef __ANDROID__
     int tun_mtu;
-    int fake_proc;
     char *sock_path;
 #else
     char *udpgw_remote_server_addr;
@@ -689,7 +688,6 @@ void print_help (const char *name)
         "        [--loglevel <0-5/none/error/warning/notice/info/debug>]\n"
         "        [--channel-loglevel <channel-name> <0-5/none/error/warning/notice/info/debug>] ...\n"
 #ifdef __ANDROID__
-        "        [--fake-proc]\n"
         "        [--tunfd <fd>]\n"
         "        [--tunmtu <mtu>]\n"
         "        [--dnsgw <dns_gateway_address>]\n"
@@ -746,7 +744,6 @@ int parse_arguments (int argc, char *argv[])
     }
 #ifdef __ANDROID__
     options.tun_mtu = 1500;
-    options.fake_proc = 0;
     options.sock_path = NULL;
 #else
     options.tundev = NULL;
@@ -844,9 +841,6 @@ int parse_arguments (int argc, char *argv[])
             i += 2;
         }
 #ifdef __ANDROID__
-        else if (!strcmp(arg, "--fake-proc")) {
-            options.fake_proc = 1;
-        }
         else if (!strcmp(arg, "--tunmtu")) {
             if (1 >= argc - i) {
                 fprintf(stderr, "%s: requires an argument\n", arg);
