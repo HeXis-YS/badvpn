@@ -206,8 +206,10 @@ struct ipv6_addr netif_ip6addr;
 // SOCKS server address
 BAddr socks_server_addr;
 
+#ifdef BADVPN_TUN2SOCKS_ENABLE_AUTH
 // allocated password file contents
 uint8_t *password_file_contents;
+#endif
 
 // SOCKS authentication information
 struct BSocksClient_auth_info socks_auth_info[2];
@@ -456,9 +458,10 @@ int main (int argc, char **argv)
         goto fail1;
     }
 #endif
-
+#ifdef BADVPN_TUN2SOCKS_ENABLE_AUTH
     // clear password contents pointer
     password_file_contents = NULL;
+#endif
 
     // initialize network
     if (!BNetwork_GlobalInit()) {
@@ -649,7 +652,9 @@ fail3:
 fail2:
     BReactor_Free(&ss);
 fail1:
+#ifdef BADVPN_TUN2SOCKS_ENABLE_AUTH
     BFree(password_file_contents);
+#endif
     BLog(BLOG_NOTICE, "exiting");
     BLog_Free();
 fail0:
@@ -1037,7 +1042,9 @@ int parse_arguments (int argc, char *argv[])
 
 int process_arguments (void)
 {
+#ifdef BADVPN_TUN2SOCKS_ENABLE_AUTH
     ASSERT(!password_file_contents)
+#endif
 
     // resolve netif ipaddr
     if (!BIPAddr_Resolve(&netif_ipaddr, options.netif_ipaddr, 0)) {
