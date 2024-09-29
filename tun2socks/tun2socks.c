@@ -149,10 +149,12 @@ struct {
     char *netif_netmask;
     char *netif_ip6addr;
     char *socks_server_addr;
+#ifdef BADVPN_TUN2SOCKS_ENABLE_AUTH
     char *username;
     char *password;
     char *password_file;
     int append_source_to_username;
+#endif
     int socks5_udp;
 #ifdef __ANDROID__
     int tun_mtu;
@@ -178,7 +180,9 @@ struct tcp_client {
     int client_closed;
     uint8_t buf[TCP_WND];
     int buf_used;
+#ifdef BADVPN_TUN2SOCKS_ENABLE_AUTH
     char *socks_username;
+#endif
     BSocksClient socks_client;
     int socks_up;
     int socks_closed;
@@ -697,10 +701,12 @@ void print_help (const char *name)
         "        --netif-netmask <ipnetmask>\n"
         "        --socks-server-addr <addr>\n"
         "        [--netif-ip6addr <addr>]\n"
+#ifdef BADVPN_TUN2SOCKS_ENABLE_AUTH
         "        [--username <username>]\n"
         "        [--password <password>]\n"
         "        [--password-file <file>]\n"
         "        [--append-source-to-username]\n"
+#endif
 #ifdef __ANDROID__
         "        [--enable-udprelay]\n"
         "        [--udprelay-max-connections <number>]\n"
@@ -753,10 +759,12 @@ int parse_arguments (int argc, char *argv[])
     options.netif_netmask = NULL;
     options.netif_ip6addr = NULL;
     options.socks_server_addr = NULL;
+#ifdef BADVPN_TUN2SOCKS_ENABLE_AUTH
     options.username = NULL;
     options.password = NULL;
     options.password_file = NULL;
     options.append_source_to_username = 0;
+#endif
     options.socks5_udp = 0;
 
     int i;
@@ -907,6 +915,7 @@ int parse_arguments (int argc, char *argv[])
             options.socks_server_addr = argv[i + 1];
             i++;
         }
+#ifdef BADVPN_TUN2SOCKS_ENABLE_AUTH
         else if (!strcmp(arg, "--username")) {
             if (1 >= argc - i) {
                 fprintf(stderr, "%s: requires an argument\n", arg);
@@ -934,6 +943,7 @@ int parse_arguments (int argc, char *argv[])
         else if (!strcmp(arg, "--append-source-to-username")) {
             options.append_source_to_username = 1;
         }
+#endif
 #ifdef __ANDROID__
         else if (!strcmp(arg, "--enable-udprelay")) {
             options.socks5_udp = 1;
@@ -1014,6 +1024,7 @@ int parse_arguments (int argc, char *argv[])
         return 0;
     }
 
+#ifdef BADVPN_TUN2SOCKS_ENABLE_AUTH
     if (options.username) {
         if (!options.password && !options.password_file) {
             fprintf(stderr, "username given but password not given\n");
@@ -1025,6 +1036,7 @@ int parse_arguments (int argc, char *argv[])
             return 0;
         }
     }
+#endif
 
     return 1;
 }
@@ -1073,6 +1085,7 @@ int process_arguments (void)
     socks_auth_info[0] = BSocksClient_auth_none();
     socks_num_auth_info = 1;
 
+#ifdef BADVPN_TUN2SOCKS_ENABLE_AUTH
     // add password socks authentication method
     if (options.username) {
         const char *password;
@@ -1093,7 +1106,7 @@ int process_arguments (void)
             password, password_len
         );
     }
-
+#endif
 #ifndef __ANDROID__
     // resolve remote udpgw server address
     if (options.udpgw_remote_server_addr) {
@@ -1586,7 +1599,9 @@ err_t listener_accept_func (void *arg, struct tcp_pcb *newpcb, err_t err)
         BLog(BLOG_ERROR, "listener accept: malloc failed");
         goto fail0;
     }
+#ifdef BADVPN_TUN2SOCKS_ENABLE_AUTH
     client->socks_username = NULL;
+#endif
 
     SYNC_DECL
     SYNC_FROMHERE
@@ -1600,7 +1615,7 @@ err_t listener_accept_func (void *arg, struct tcp_pcb *newpcb, err_t err)
 #ifdef OVERRIDE_DEST_ADDR
     ASSERT_FORCE(BAddr_Parse2(&addr, OVERRIDE_DEST_ADDR, NULL, 0, 1))
 #endif
-
+#ifdef BADVPN_TUN2SOCKS_ENABLE_AUTH
     // add source address to username if requested
     if (options.username && options.append_source_to_username) {
         char addr_str[BADDR_MAX_PRINT_LEN];
@@ -1612,6 +1627,7 @@ err_t listener_accept_func (void *arg, struct tcp_pcb *newpcb, err_t err)
         socks_auth_info[1].password.username = client->socks_username;
         socks_auth_info[1].password.username_len = strlen(client->socks_username);
     }
+#endif
 
     // init SOCKS
     if (!BSocksClient_Init(&client->socks_client,
@@ -1667,7 +1683,9 @@ err_t listener_accept_func (void *arg, struct tcp_pcb *newpcb, err_t err)
 
 fail1:
     SYNC_BREAK
+#ifdef BADVPN_TUN2SOCKS_ENABLE_AUTH
     free(client->socks_username);
+#endif
     free(client);
 fail0:
     return ERR_MEM;
@@ -1821,7 +1839,9 @@ void client_dealloc (struct tcp_client *client)
     }
 
     // free memory
+#ifdef BADVPN_TUN2SOCKS_ENABLE_AUTH
     free(client->socks_username);
+#endif
     free(client);
 }
 
