@@ -219,12 +219,12 @@ void SocksUdpGwClient_Free (SocksUdpGwClient *o)
     UdpGwClient_Free(&o->udpgw_client);
 }
 
-void SocksUdpGwClient_SubmitPacket (SocksUdpGwClient *o, BAddr local_addr, BAddr remote_addr, int is_dns, const uint8_t *data, int data_len)
+void SocksUdpGwClient_SubmitPacket (SocksUdpGwClient *o, BAddr local_addr, BAddr remote_addr, const uint8_t *data, int data_len)
 {
     DebugObject_Access(&o->d_obj);
     // see asserts in UdpGwClient_SubmitPacket
 
     // submit to udpgw client
-    UdpGwClient_SubmitPacket(&o->udpgw_client, local_addr, remote_addr, is_dns, data, data_len);
+    UdpGwClient_SubmitPacket(&o->udpgw_client, local_addr, remote_addr, data, data_len);
 }
 

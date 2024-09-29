@@ -80,8 +80,6 @@
 #ifdef __ANDROID__
 
 #include <ancillary.h>
-
-#include <sys/prctl.h>
 #include <sys/un.h>
 #include <structure/BAVL.h>
 
@@ -93,49 +91,6 @@ typedef struct {
     int count;
     BAVLNode connections_tree_node;
 } Connection;
-
-static int conaddr_comparator (void *unused, uint16_t *v1, uint16_t *v2)
-{
-    if (*v1 == *v2) return 0;
-    else if (*v1 > *v2) return 1;
-    else return -1;
-}
-
-static Connection * find_connection (uint16_t port)
-{
-    BAVLNode *tree_node = BAVL_LookupExact(&connections_tree, &port);
-    if (!tree_node) {
-        return NULL;
-    }
-
-    return UPPER_OBJECT(tree_node, Connection, connections_tree_node);
-}
-
-static void remove_connection (Connection *con)
-{
-    con->count -= 1;
-    if (con->count <= 0)
-    {
-        BAVL_Remove(&connections_tree, &con->connections_tree_node);
-        free(con);
-    }
-}
-
-static void insert_connection (BAddr local_addr, BAddr remote_addr, uint16_t port)
-{
-   Connection * con = find_connection(port);
-   if (con != NULL)
-       con->count += 1;
-   else
-   {
-       Connection * tmp = (Connection *)malloc(sizeof(Connection));
-       tmp->local_addr = local_addr;
-       tmp->remote_addr = remote_addr;
-       tmp->port = port;
-       tmp->count = 1;
-       BAVL_Insert(&connections_tree, &tmp->connections_tree_node, NULL);
-   }
-}
 
 static void free_connections()
 {
@@ -150,14 +105,16 @@ static void tcp_remove(struct tcp_pcb* pcb_list)
     struct tcp_pcb *pcb = pcb_list;
     struct tcp_pcb *pcb2;
 
-    while(pcb != NULL)
-    {
+    while(pcb != NULL) {
         pcb2 = pcb;
         pcb = pcb->next;
+        if (pcb2->state == LISTEN) {
+        tcp_close(pcb2);
+        } else {
         tcp_abort(pcb2);
+        }
     }
 }
-
 #endif
 
 #define LOGGER_STDOUT 1
@@ -196,17 +153,16 @@ struct {
     char *password;
     char *password_file;
     int append_source_to_username;
-    int udpgw_max_connections;
-    int udpgw_connection_buffer_size;
-    int udpgw_transparent_dns;
     int socks5_udp;
 #ifdef __ANDROID__
     int tun_mtu;
     int fake_proc;
     char *sock_path;
-    char *pid;
 #else
     char *udpgw_remote_server_addr;
+    int udpgw_max_connections;
+    int udpgw_connection_buffer_size;
+    int udpgw_transparent_dns;
     char *tundev;
 #endif
 } options;
@@ -359,58 +315,6 @@ static err_t client_sent_func (void *arg, struct tcp_pcb *tpcb, u16_t len);
 static void udp_send_packet_to_device (void *unused, BAddr local_addr, BAddr remote_addr, const uint8_t *data, int data_len);
 
 #ifdef __ANDROID__
-static void daemonize(const char* path) {
-
-    /* Our process ID and Session ID */
-    pid_t pid, sid;
-
-    /* Fork off the parent process */
-    pid = fork();
-    if (pid < 0) {
-        exit(EXIT_FAILURE);
-    }
-
-    /* If we got a good PID, then
-       we can exit the parent process. */
-    if (pid > 0) {
-        FILE *file = fopen(path, "w");
-        if (file == NULL) {
-            BLog(BLOG_ERROR, "Invalid pid file");
-            exit(EXIT_FAILURE);
-        }
-
-        fprintf(file, "%d", pid);
-        fclose(file);
-        exit(EXIT_SUCCESS);
-    }
-
-    /* Change the file mode mask */
-    umask(0);
-
-    /* Open any logs here */
-
-    /* Create a new SID for the child process */
-    sid = setsid();
-    if (sid < 0) {
-        /* Log the failure */
-        exit(EXIT_FAILURE);
-    }
-
-    /* Change the current working directory */
-    if ((chdir("/")) < 0) {
-        /* Log the failure */
-        exit(EXIT_FAILURE);
-    }
-
-    /* Close out the standard file descriptors */
-    close(STDIN_FILENO);
-    close(STDOUT_FILENO);
-    close(STDERR_FILENO);
-}
-#endif
-
-
-#ifdef __ANDROID__
 int wait_for_fd()
 {
     int fd, sock;
@@ -547,10 +451,6 @@ int main (int argc, char **argv)
 
     if (fd == -1) {
         goto fail1;
-    }
-
-    if (options.pid) {
-        daemonize(options.pid);
     }
 #endif
 
@@ -789,7 +689,6 @@ void print_help (const char *name)
         "        [--tunfd <fd>]\n"
         "        [--tunmtu <mtu>]\n"
         "        [--dnsgw <dns_gateway_address>]\n"
-        "        [--pid <pid_file>]\n"
         "        [--sock-path <sock_path>]\n"
 #else
         "        [--tundev <name>]\n"
@@ -842,11 +741,13 @@ int parse_arguments (int argc, char *argv[])
 #ifdef __ANDROID__
     options.tun_mtu = 1500;
     options.fake_proc = 0;
-    options.pid = NULL;
     options.sock_path = NULL;
 #else
     options.tundev = NULL;
     options.udpgw_remote_server_addr = NULL;
+    options.udpgw_max_connections = DEFAULT_UDPGW_MAX_CONNECTIONS;
+    options.udpgw_connection_buffer_size = DEFAULT_UDPGW_CONNECTION_BUFFER_SIZE;
+    options.udpgw_transparent_dns = 0;
 #endif
     options.netif_ipaddr = NULL;
     options.netif_netmask = NULL;
@@ -856,9 +757,6 @@ int parse_arguments (int argc, char *argv[])
     options.password = NULL;
     options.password_file = NULL;
     options.append_source_to_username = 0;
-    options.udpgw_max_connections = DEFAULT_UDPGW_MAX_CONNECTIONS;
-    options.udpgw_connection_buffer_size = DEFAULT_UDPGW_CONNECTION_BUFFER_SIZE;
-    options.udpgw_transparent_dns = 0;
     options.socks5_udp = 0;
 
     int i;
@@ -965,14 +863,6 @@ int parse_arguments (int argc, char *argv[])
                 return 0;
             }
             options.sock_path = argv[i + 1];
-            i++;
-        }
-        else if (!strcmp(arg, "--pid")) {
-            if (1 >= argc - i) {
-                fprintf(stderr, "%s: requires an argument\n", arg);
-                return 0;
-            }
-            options.pid = argv[i + 1];
             i++;
         }
 #else
@@ -1442,7 +1332,6 @@ int process_device_udp_packet (uint8_t *data, int data_len)
 
     BAddr local_addr;
     BAddr remote_addr;
-    int is_dns = 0;
 
     uint8_t ip_version = 0;
     if (data_len > 0) {
@@ -1485,6 +1374,7 @@ int process_device_udp_packet (uint8_t *data, int data_len)
                 goto fail;
             }
 
+#ifndef __ANDROID__
             // verify UDP checksum
             uint16_t checksum_in_packet = udp_header.checksum;
             udp_header.checksum = 0;
@@ -1492,6 +1382,7 @@ int process_device_udp_packet (uint8_t *data, int data_len)
             if (checksum_in_packet != checksum_computed) {
                 goto fail;
             }
+#endif
 
             BLog(BLOG_INFO, "UDP: from device %d bytes", data_len);
 
@@ -1541,6 +1432,7 @@ int process_device_udp_packet (uint8_t *data, int data_len)
                 goto fail;
             }
 
+#ifndef __ANDROID__
             // verify UDP checksum
             uint16_t checksum_in_packet = udp_header.checksum;
             udp_header.checksum = 0;
@@ -1548,15 +1440,13 @@ int process_device_udp_packet (uint8_t *data, int data_len)
             if (checksum_in_packet != checksum_computed) {
                 goto fail;
             }
+#endif
 
             BLog(BLOG_INFO, "UDP/IPv6: from device %d bytes", data_len);
 
             // construct addresses
             BAddr_InitIPv6(&local_addr, ipv6_header.source_address, udp_header.source_port);
             BAddr_InitIPv6(&remote_addr, ipv6_header.destination_address, udp_header.dest_port);
-
-            // TODO dns
-            is_dns = 0;
         } break;
 
         default: {
@@ -1575,8 +1465,7 @@ int process_device_udp_packet (uint8_t *data, int data_len)
         SocksUdpClient_SubmitPacket(&socks_udp_client, local_addr, remote_addr, data, data_len);
 #ifndef __ANDROID__
     } else if (udp_mode == UdpModeUdpgw) {
-        SocksUdpGwClient_SubmitPacket(&udpgw_client, local_addr, remote_addr,
-                                      is_dns, data, data_len);
+        SocksUdpGwClient_SubmitPacket(&udpgw_client, local_addr, remote_addr, data, data_len);
 #endif
     } 
     return 1;

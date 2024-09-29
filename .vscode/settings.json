@@ -1,0 +1,10 @@
+{
+    "files.associations": {
+        "socksudpclient.h": "c",
+        "ip6_frag.h": "c",
+        "exception": "c",
+        "tcp_helper.h": "c",
+        "ip_addr.h": "c",
+        "bavl.h": "c"
+    }
+}
