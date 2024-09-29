@@ -58,11 +58,9 @@ struct BLisCon_from {
         struct {
             BAddr addr;
         } from_addr;
-#ifndef BADVPN_USE_WINAPI
         struct {
             char const *socket_path;
         } from_unix;
-#endif
     } u;
 };
 
@@ -74,7 +72,6 @@ static struct BLisCon_from BLisCon_from_addr (BAddr addr)
     return res;
 }
 
-#ifndef BADVPN_USE_WINAPI
 static struct BLisCon_from BLisCon_from_unix (char const *socket_path)
 {
     struct BLisCon_from res;
@@ -82,7 +79,6 @@ static struct BLisCon_from BLisCon_from_unix (char const *socket_path)
     res.u.from_unix.socket_path = socket_path;
     return res;
 }
-#endif
 
 
 struct BListener_s;
@@ -128,7 +124,6 @@ int BListener_InitFrom (BListener *o, struct BLisCon_from from,
 int BListener_Init (BListener *o, BAddr addr, BReactor *reactor, void *user,
                     BListener_handler handler) WARN_UNUSED;
 
-#ifndef BADVPN_USE_WINAPI
 /**
  * Initializes the object for listening on a Unix socket.
  * {@link BNetwork_GlobalInit} must have been done.
@@ -142,7 +137,6 @@ int BListener_Init (BListener *o, BAddr addr, BReactor *reactor, void *user,
  */
 int BListener_InitUnix (BListener *o, const char *socket_path, BReactor *reactor, void *user,
                         BListener_handler handler) WARN_UNUSED;
-#endif
 
 /**
  * Frees the object.
@@ -196,7 +190,6 @@ int BConnector_InitFrom (BConnector *o, struct BLisCon_from from, BReactor *reac
 int BConnector_Init (BConnector *o, BAddr addr, BReactor *reactor, void *user,
                      BConnector_handler handler) WARN_UNUSED;
 
-#ifndef BADVPN_USE_WINAPI
 /**
  * Initializes the object for connecting to a Unix socket.
  * {@link BNetwork_GlobalInit} must have been done.
@@ -210,7 +203,6 @@ int BConnector_Init (BConnector *o, BAddr addr, BReactor *reactor, void *user,
  */
 int BConnector_InitUnix (BConnector *o, const char *socket_path, BReactor *reactor, void *user,
                          BConnector_handler handler) WARN_UNUSED;
-#endif
 
 /**
  * Frees the object.
@@ -235,12 +227,10 @@ struct BConnection_source {
         struct {
             BConnector *connector;
         } connector;
-#ifndef BADVPN_USE_WINAPI
         struct {
             int pipefd;
             int close_it;
         } pipe;
-#endif
     } u;
 };
 
@@ -261,7 +251,6 @@ static struct BConnection_source BConnection_source_connector (BConnector *conne
     return s;
 }
 
-#ifndef BADVPN_USE_WINAPI
 static struct BConnection_source BConnection_source_pipe (int pipefd, int close_it)
 {
     struct BConnection_source s;
@@ -270,7 +259,6 @@ static struct BConnection_source BConnection_source_pipe (int pipefd, int close_
     s.u.pipe.close_it = close_it;
     return s;
 }
-#endif
 
 struct BConnection_s;
 
@@ -427,11 +415,6 @@ void BConnection_RecvAsync_Free (BConnection *o);
 StreamRecvInterface * BConnection_RecvAsync_GetIf (BConnection *o);
 
 
-
-#ifdef BADVPN_USE_WINAPI
-#include "BConnection_win.h"
-#else
 #include "BConnection_unix.h"
-#endif
 
 #endif

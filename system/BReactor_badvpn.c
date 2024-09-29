@@ -32,14 +32,10 @@
 #include <stdio.h>
 #include <stddef.h>
 
-#ifdef BADVPN_USE_WINAPI
-#include <windows.h>
-#else
 #include <limits.h>
 #include <sys/types.h>
 #include <errno.h>
 #include <unistd.h>
-#endif
 
 #include <misc/debug.h>
 #include <misc/offset.h>
@@ -147,28 +143,6 @@ static void move_first_timers (BReactor *bsys)
     }
 }
 
-#ifdef BADVPN_USE_WINAPI
-
-static void set_iocp_ready (BReactorIOCPOverlapped *olap, int succeeded, DWORD bytes)
-{
-    BReactor *reactor = olap->reactor;
-    ASSERT(!olap->is_ready)
-    
-    // set parameters
-    olap->ready_succeeded = succeeded;
-    olap->ready_bytes = bytes;
-    
-    // insert to IOCP ready list
-    LinkedList1_Append(&reactor->iocp_ready_list, &olap->ready_list_node);
-    
-    // set ready
-    olap->is_ready = 1;
-}
-
-#endif
-
-#ifdef BADVPN_USE_EPOLL
-
 static void set_epoll_fd_pointers (BReactor *bsys)
 {
     // Write pointers to our entry pointers into file descriptors.
@@ -184,127 +158,16 @@ static void set_epoll_fd_pointers (BReactor *bsys)
     }
 }
 
-#endif
-
-#ifdef BADVPN_USE_KEVENT
-
-static void set_kevent_fd_pointers (BReactor *bsys)
-{
-    for (int i = 0; i < bsys->kevent_results_num; i++) {
-        struct kevent *event = &bsys->kevent_results[i];
-        ASSERT(event->udata)
-        
-        int *tag = event->udata;
-        switch (*tag) {
-            case KEVENT_TAG_FD: {
-                BFileDescriptor *bfd = UPPER_OBJECT(tag, BFileDescriptor, kevent_tag);
-                ASSERT(bfd->active)
-                bsys->kevent_prev_event[i] = bfd->kevent_last_event;
-                bfd->kevent_last_event = i;
-            } break;
-            
-            case KEVENT_TAG_KEVENT: {
-                BReactorKEvent *kev = UPPER_OBJECT(tag, BReactorKEvent, kevent_tag);
-                ASSERT(kev->reactor == bsys)
-                bsys->kevent_prev_event[i] = kev->kevent_last_event;
-                kev->kevent_last_event = i;
-            } break;
-            
-            default:
-                ASSERT(0);
-        }
-    }
-}
-
-static void update_kevent_fd_events (BReactor *bsys, BFileDescriptor *bs, int events)
-{
-    struct kevent event;
-    
-    if (!(bs->waitEvents & BREACTOR_READ) && (events & BREACTOR_READ)) {
-        memset(&event, 0, sizeof(event));
-        event.ident = bs->fd;
-        event.filter = EVFILT_READ;
-        event.flags = EV_ADD;
-        event.udata = &bs->kevent_tag;
-        ASSERT_FORCE(kevent(bsys->kqueue_fd, &event, 1, NULL, 0, NULL) == 0)
-    }
-    else if ((bs->waitEvents & BREACTOR_READ) && !(events & BREACTOR_READ)) {
-        memset(&event, 0, sizeof(event));
-        event.ident = bs->fd;
-        event.filter = EVFILT_READ;
-        event.flags = EV_DELETE;
-        ASSERT_FORCE(kevent(bsys->kqueue_fd, &event, 1, NULL, 0, NULL) == 0)
-    }
-    
-    if (!(bs->waitEvents & BREACTOR_WRITE) && (events & BREACTOR_WRITE)) {
-        memset(&event, 0, sizeof(event));
-        event.ident = bs->fd;
-        event.filter = EVFILT_WRITE;
-        event.flags = EV_ADD;
-        event.udata = &bs->kevent_tag;
-        ASSERT_FORCE(kevent(bsys->kqueue_fd, &event, 1, NULL, 0, NULL) == 0)
-    }
-    else if ((bs->waitEvents & BREACTOR_WRITE) && !(events & BREACTOR_WRITE)) {
-        memset(&event, 0, sizeof(event));
-        event.ident = bs->fd;
-        event.filter = EVFILT_WRITE;
-        event.flags = EV_DELETE;
-        ASSERT_FORCE(kevent(bsys->kqueue_fd, &event, 1, NULL, 0, NULL) == 0)
-    }
-}
-
-#endif
-
-#ifdef BADVPN_USE_POLL
-
-static void set_poll_fd_pointers (BReactor *bsys)
-{
-    for (int i = 0; i < bsys->poll_results_num; i++) {
-        BFileDescriptor *bfd = bsys->poll_results_bfds[i];
-        ASSERT(bfd)
-        ASSERT(bfd->active)
-        ASSERT(bfd->poll_returned_index == -1)
-        bfd->poll_returned_index = i;
-    }
-}
-
-#endif
-
 static void wait_for_events (BReactor *bsys)
 {
     // must have processed all pending events
     ASSERT(!BPendingGroup_HasJobs(&bsys->pending_jobs))
     ASSERT(LinkedList1_IsEmpty(&bsys->timers_expired_list))
-    #ifdef BADVPN_USE_WINAPI
-    ASSERT(LinkedList1_IsEmpty(&bsys->iocp_ready_list))
-    #endif
-    #ifdef BADVPN_USE_EPOLL
     ASSERT(bsys->epoll_results_pos == bsys->epoll_results_num)
-    #endif
-    #ifdef BADVPN_USE_KEVENT
-    ASSERT(bsys->kevent_results_pos == bsys->kevent_results_num)
-    #endif
-    #ifdef BADVPN_USE_POLL
-    ASSERT(bsys->poll_results_pos == bsys->poll_results_num)
-    #endif
 
     // clean up epoll results
-    #ifdef BADVPN_USE_EPOLL
     bsys->epoll_results_num = 0;
     bsys->epoll_results_pos = 0;
-    #endif
-    
-    // clean up kevent results
-    #ifdef BADVPN_USE_KEVENT
-    bsys->kevent_results_num = 0;
-    bsys->kevent_results_pos = 0;
-    #endif
-    
-    // clean up poll results
-    #ifdef BADVPN_USE_POLL
-    bsys->poll_results_num = 0;
-    bsys->poll_results_pos = 0;
-    #endif
     
     // timeout vars
     int have_timeout = 0;
@@ -342,41 +205,6 @@ static void wait_for_events (BReactor *bsys)
         
         // perform wait
         
-        #ifdef BADVPN_USE_WINAPI
-        
-        if (have_timeout) {
-            if (timeout_rel_trunc > INFINITE - 1) {
-                timeout_rel_trunc = INFINITE - 1;
-            }
-        }
-        
-        DWORD bytes = 0;
-        ULONG_PTR key;
-        BReactorIOCPOverlapped *olap = NULL;
-        BOOL res = GetQueuedCompletionStatus(bsys->iocp_handle, &bytes, &key, (OVERLAPPED **)&olap, (have_timeout ? timeout_rel_trunc : INFINITE));
-        
-        ASSERT_FORCE(olap || have_timeout)
-        
-        if (olap || timeout_rel_trunc == timeout_rel) {
-            if (olap) {
-                BLog(BLOG_DEBUG, "GetQueuedCompletionStatus returned event");
-                
-                DebugObject_Access(&olap->d_obj);
-                ASSERT(olap->reactor == bsys)
-                ASSERT(!olap->is_ready)
-                
-                set_iocp_ready(olap, (res == TRUE), bytes);
-            } else {
-                BLog(BLOG_DEBUG, "GetQueuedCompletionStatus timed out");
-                move_first_timers(bsys);
-            }
-            break;
-        }
-        
-        #endif
-        
-        #ifdef BADVPN_USE_EPOLL
-        
         if (have_timeout) {
             if (timeout_rel_trunc > INT_MAX) {
                 timeout_rel_trunc = INT_MAX;
@@ -411,121 +239,6 @@ static void wait_for_events (BReactor *bsys)
             break;
         }
         
-        #endif
-        
-        #ifdef BADVPN_USE_KEVENT
-        
-        struct timespec ts;
-        if (have_timeout) {
-            if (timeout_rel_trunc > 86400000) {
-                timeout_rel_trunc = 86400000;
-            }
-            ts.tv_sec = timeout_rel_trunc / 1000;
-            ts.tv_nsec = (timeout_rel_trunc % 1000) * 1000000;
-        }
-        
-        BLog(BLOG_DEBUG, "Calling kevent");
-        
-        int waitres = kevent(bsys->kqueue_fd, NULL, 0, bsys->kevent_results, BSYSTEM_MAX_RESULTS, (have_timeout ? &ts : NULL));
-        if (waitres < 0) {
-            int error = errno;
-            if (error == EINTR) {
-                BLog(BLOG_DEBUG, "kevent interrupted");
-                goto try_again;
-            }
-            perror("kevent");
-            ASSERT_FORCE(0)
-        }
-        
-        ASSERT_FORCE(!(waitres == 0) || have_timeout)
-        ASSERT_FORCE(waitres <= BSYSTEM_MAX_RESULTS)
-        
-        if (waitres != 0 || timeout_rel_trunc == timeout_rel) {
-            if (waitres != 0) {
-                BLog(BLOG_DEBUG, "kevent returned %d events", waitres);
-                bsys->kevent_results_num = waitres;
-                set_kevent_fd_pointers(bsys);
-            } else {
-                BLog(BLOG_DEBUG, "kevent timed out");
-                move_first_timers(bsys);
-            }
-            break;
-        }
-        
-        #endif
-        
-        #ifdef BADVPN_USE_POLL
-        
-        if (have_timeout) {
-            if (timeout_rel_trunc > INT_MAX) {
-                timeout_rel_trunc = INT_MAX;
-            }
-        }
-        
-        ASSERT(bsys->poll_num_enabled_fds >= 0)
-        ASSERT(bsys->poll_num_enabled_fds <= BSYSTEM_MAX_POLL_FDS)
-        int num_fds = 0;
-        
-        LinkedList1Node *list_node = LinkedList1_GetFirst(&bsys->poll_enabled_fds_list);
-        while (list_node) {
-            BFileDescriptor *bfd = UPPER_OBJECT(list_node, BFileDescriptor, poll_enabled_fds_list_node);
-            ASSERT(bfd->active)
-            ASSERT(bfd->poll_returned_index == -1)
-            
-            // calculate poll events
-            int pevents = 0;
-            if ((bfd->waitEvents & BREACTOR_READ)) {
-                pevents |= POLLIN;
-            }
-            if ((bfd->waitEvents & BREACTOR_WRITE)) {
-                pevents |= POLLOUT;
-            }
-            
-            // write pollfd entry
-            struct pollfd *pfd = &bsys->poll_results_pollfds[num_fds];
-            pfd->fd = bfd->fd;
-            pfd->events = pevents;
-            pfd->revents = 0;
-            
-            // write BFileDescriptor reference entry
-            bsys->poll_results_bfds[num_fds] = bfd;
-            
-            // increment number of fds in array
-            num_fds++;
-            
-            list_node = LinkedList1Node_Next(list_node);
-        }
-        
-        BLog(BLOG_DEBUG, "Calling poll");
-        
-        int waitres = poll(bsys->poll_results_pollfds, num_fds, (have_timeout ? timeout_rel_trunc : -1));
-        if (waitres < 0) {
-            int error = errno;
-            if (error == EINTR) {
-                BLog(BLOG_DEBUG, "poll interrupted");
-                goto try_again;
-            }
-            perror("poll");
-            ASSERT_FORCE(0)
-        }
-        
-        ASSERT_FORCE(!(waitres == 0) || have_timeout)
-        
-        if (waitres != 0 || timeout_rel_trunc == timeout_rel) {
-            if (waitres != 0) {
-                BLog(BLOG_DEBUG, "poll returned %d file descriptors", waitres);
-                bsys->poll_results_num = num_fds;
-                bsys->poll_results_pos = 0;
-                set_poll_fd_pointers(bsys);
-            } else {
-                BLog(BLOG_DEBUG, "poll timed out");
-                move_first_timers(bsys);
-            }
-            break;
-        }
-        
-        #endif
-        
     try_again:
         if (have_timeout) {
             // get current time
@@ -549,8 +262,6 @@ static void wait_for_events (BReactor *bsys)
     }
 }
 
-#ifndef BADVPN_USE_WINAPI
-
 void BFileDescriptor_Init (BFileDescriptor *bs, int fd, BFileDescriptor_handler handler, void *user)
 {
     bs->fd = fd;
@@ -558,8 +269,6 @@ void BFileDescriptor_Init (BFileDescriptor *bs, int fd, BFileDescriptor_handler 
     bs->user = user;
     bs->active = 0;
 }
-
-#endif
 
 void BSmallTimer_Init (BSmallTimer *bt, BSmallTimer_handler handler)
 {
@@ -606,24 +315,6 @@ int BReactor_Init (BReactor *bsys)
     // init limits
     LinkedList1_Init(&bsys->active_limits_list);
     
-    #ifdef BADVPN_USE_WINAPI
-    
-    // init IOCP list
-    LinkedList1_Init(&bsys->iocp_list);
-    
-    // init IOCP handle
-    if (!(bsys->iocp_handle = CreateIoCompletionPort(INVALID_HANDLE_VALUE, NULL, 0, 1))) {
-        BLog(BLOG_ERROR, "CreateIoCompletionPort failed");
-        goto fail0;
-    }
-    
-    // init IOCP ready list
-    LinkedList1_Init(&bsys->iocp_ready_list);
-    
-    #endif
-    
-    #ifdef BADVPN_USE_EPOLL
-    
     // create epoll fd
     if ((bsys->efd = epoll_create(10)) < 0) {
         BLog(BLOG_ERROR, "epoll_create failed");
@@ -634,61 +325,12 @@ int BReactor_Init (BReactor *bsys)
     bsys->epoll_results_num = 0;
     bsys->epoll_results_pos = 0;
     
-    #endif
-    
-    #ifdef BADVPN_USE_KEVENT
-    
-    // create kqueue fd
-    if ((bsys->kqueue_fd = kqueue()) < 0) {
-        BLog(BLOG_ERROR, "kqueue failed");
-        goto fail0;
-    }
-    
-    // init results array
-    bsys->kevent_results_num = 0;
-    bsys->kevent_results_pos = 0;
-    
-    #endif
-    
-    #ifdef BADVPN_USE_POLL
-    
-    // init enabled fds list
-    LinkedList1_Init(&bsys->poll_enabled_fds_list);
-    
-    // set zero enabled fds
-    bsys->poll_num_enabled_fds = 0;
-    
-    // allocate results arrays
-    if (!(bsys->poll_results_pollfds = BAllocArray(BSYSTEM_MAX_POLL_FDS, sizeof(bsys->poll_results_pollfds[0])))) {
-        BLog(BLOG_ERROR, "BAllocArray failed");
-        goto fail0;
-    }
-    if (!(bsys->poll_results_bfds = BAllocArray(BSYSTEM_MAX_POLL_FDS, sizeof(bsys->poll_results_bfds[0])))) {
-        BLog(BLOG_ERROR, "BAllocArray failed");
-        goto fail1;
-    }
-    
-    // init results array
-    bsys->poll_results_num = 0;
-    bsys->poll_results_pos = 0;
-    
-    #endif
-    
     DebugObject_Init(&bsys->d_obj);
-    #ifndef BADVPN_USE_WINAPI
     DebugCounter_Init(&bsys->d_fds_counter);
-    #endif
-    #ifdef BADVPN_USE_KEVENT
-    DebugCounter_Init(&bsys->d_kevent_ctr);
-    #endif
     DebugCounter_Init(&bsys->d_limits_ctr);
     
     return 1;
     
-    #ifdef BADVPN_USE_POLL
-fail1:
-    BFree(bsys->poll_results_pollfds);
-    #endif
 fail0:
     BPendingGroup_Free(&bsys->pending_jobs);
     BLog(BLOG_ERROR, "Reactor failed to initialize");
@@ -699,66 +341,19 @@ void BReactor_Free (BReactor *bsys)
 {
     DebugObject_Access(&bsys->d_obj);
     
-    #ifdef BADVPN_USE_WINAPI
-    while (!LinkedList1_IsEmpty(&bsys->iocp_list)) {
-        BReactorIOCPOverlapped *olap = UPPER_OBJECT(LinkedList1_GetLast(&bsys->iocp_list), BReactorIOCPOverlapped, iocp_list_node);
-        ASSERT(olap->reactor == bsys)
-        olap->handler(olap->user, BREACTOR_IOCP_EVENT_EXITING, 0);
-    }
-    #endif
-    
     // {pending group has no BPending objects}
     ASSERT(!BPendingGroup_HasJobs(&bsys->pending_jobs))
     ASSERT(BReactor__TimersTree_IsEmpty(&bsys->timers_tree))
     ASSERT(LinkedList1_IsEmpty(&bsys->timers_expired_list))
     ASSERT(LinkedList1_IsEmpty(&bsys->active_limits_list))
     DebugObject_Free(&bsys->d_obj);
-    #ifdef BADVPN_USE_WINAPI
-    ASSERT(LinkedList1_IsEmpty(&bsys->iocp_ready_list))
-    ASSERT(LinkedList1_IsEmpty(&bsys->iocp_list))
-    #endif
-    #ifndef BADVPN_USE_WINAPI
     DebugCounter_Free(&bsys->d_fds_counter);
-    #endif
-    #ifdef BADVPN_USE_KEVENT
-    DebugCounter_Free(&bsys->d_kevent_ctr);
-    #endif
     DebugCounter_Free(&bsys->d_limits_ctr);
-    #ifdef BADVPN_USE_POLL
-    ASSERT(bsys->poll_num_enabled_fds == 0)
-    ASSERT(LinkedList1_IsEmpty(&bsys->poll_enabled_fds_list))
-    #endif
     
     BLog(BLOG_DEBUG, "Reactor freeing");
     
-    #ifdef BADVPN_USE_WINAPI
-    
-    // close IOCP handle
-    ASSERT_FORCE(CloseHandle(bsys->iocp_handle))
-    
-    #endif
-    
-    #ifdef BADVPN_USE_EPOLL
-    
     // close epoll fd
     ASSERT_FORCE(close(bsys->efd) == 0)
-    
-    #endif
-    
-    #ifdef BADVPN_USE_KEVENT
-    
-    // close kqueue fd
-    ASSERT_FORCE(close(bsys->kqueue_fd) == 0)
-    
-    #endif
-    
-    #ifdef BADVPN_USE_POLL
-    
-    // free results arrays
-    BFree(bsys->poll_results_bfds);
-    BFree(bsys->poll_results_pollfds);
-    
-    #endif
     
     // free jobs
     BPendingGroup_Free(&bsys->pending_jobs);
@@ -797,30 +392,6 @@ int BReactor_Exec (BReactor *bsys)
             }
             continue;
         }
-        
-        #ifdef BADVPN_USE_WINAPI
-        
-        if (!LinkedList1_IsEmpty(&bsys->iocp_ready_list)) {
-            BReactorIOCPOverlapped *olap = UPPER_OBJECT(LinkedList1_GetFirst(&bsys->iocp_ready_list), BReactorIOCPOverlapped, ready_list_node);
-            ASSERT(olap->is_ready)
-            ASSERT(olap->handler)
-            
-            // remove from ready list
-            LinkedList1_Remove(&bsys->iocp_ready_list, &olap->ready_list_node);
-            
-            // set not ready
-            olap->is_ready = 0;
-            
-            int event = (olap->ready_succeeded ? BREACTOR_IOCP_EVENT_SUCCEEDED : BREACTOR_IOCP_EVENT_FAILED);
-            
-            // call handler
-            olap->handler(olap->user, event, olap->ready_bytes);
-            continue;
-        }
-        
-        #endif
-        
-        #ifdef BADVPN_USE_EPOLL
         
         // dispatch file descriptor
         if (bsys->epoll_results_pos < bsys->epoll_results_num) {
@@ -866,121 +437,6 @@ int BReactor_Exec (BReactor *bsys)
             bfd->handler(bfd->user, events);
             continue;
         }
-        
-        #endif
-        
-        #ifdef BADVPN_USE_KEVENT
-        
-        // dispatch kevent
-        if (bsys->kevent_results_pos < bsys->kevent_results_num) {
-            // grab event
-            int event_index = bsys->kevent_results_pos;
-            struct kevent *event = &bsys->kevent_results[event_index];
-            bsys->kevent_results_pos++;
-            
-            // check if the event was removed
-            if (!event->udata) {
-                continue;
-            }
-            
-            // check tag
-            int *tag = event->udata;
-            switch (*tag) {
-                case KEVENT_TAG_FD: {
-                    // get BFileDescriptor
-                    BFileDescriptor *bfd = UPPER_OBJECT(tag, BFileDescriptor, kevent_tag);
-                    ASSERT(bfd->active)
-                    
-                    // when we get to the last event for this fd, reset kevent_last_event
-                    if (event_index == bfd->kevent_last_event) {
-                        bfd->kevent_last_event = -1;
-                    }
-                    
-                    // calculate event to report
-                    int events = 0;
-                    if ((bfd->waitEvents&BREACTOR_READ) && event->filter == EVFILT_READ) {
-                        events |= BREACTOR_READ;
-                    }
-                    if ((bfd->waitEvents&BREACTOR_WRITE) && event->filter == EVFILT_WRITE) {
-                        events |= BREACTOR_WRITE;
-                    }
-                    
-                    if (!events) {
-                        BLog(BLOG_ERROR, "no events detected?");
-                        continue;
-                    }
-                    
-                    // call handler
-                    BLog(BLOG_DEBUG, "Dispatching file descriptor");
-                    bfd->handler(bfd->user, events);
-                    continue;
-                } break;
-                
-                case KEVENT_TAG_KEVENT: {
-                    // get BReactorKEvent
-                    BReactorKEvent *kev = UPPER_OBJECT(tag, BReactorKEvent, kevent_tag);
-                    ASSERT(kev->reactor == bsys)
-                    
-                    // when we get to the last event for this fd, reset kevent_last_event
-                    if (event_index == kev->kevent_last_event) {
-                        kev->kevent_last_event = -1;
-                    }
-                    
-                    // call handler
-                    BLog(BLOG_DEBUG, "Dispatching kevent");
-                    kev->handler(kev->user, event->fflags, event->data);
-                    continue;
-                } break;
-                
-                default:
-                    ASSERT(0);
-            }
-        }
-        
-        #endif
-        
-        #ifdef BADVPN_USE_POLL
-        
-        if (bsys->poll_results_pos < bsys->poll_results_num) {
-            // grab event
-            struct pollfd *pfd = &bsys->poll_results_pollfds[bsys->poll_results_pos];
-            BFileDescriptor *bfd = bsys->poll_results_bfds[bsys->poll_results_pos];
-            bsys->poll_results_pos++;
-            
-            // skip removed entry
-            if (!bfd) {
-                continue;
-            }
-            
-            ASSERT(bfd->active)
-            ASSERT(bfd->poll_returned_index == bsys->poll_results_pos - 1)
-            
-            // remove result reference
-            bfd->poll_returned_index = -1;
-            
-            // calculate events to report
-            int events = 0;
-            if ((bfd->waitEvents & BREACTOR_READ) && (pfd->revents & POLLIN)) {
-                events |= BREACTOR_READ;
-            }
-            if ((bfd->waitEvents & BREACTOR_WRITE) && (pfd->revents & POLLOUT)) {
-                events |= BREACTOR_WRITE;
-            }
-            if ((pfd->revents & POLLERR) || (pfd->revents & POLLHUP)) {
-                events |= BREACTOR_ERROR;
-            }
-            
-            if (!events) {
-                continue;
-            }
-            
-            // call handler
-            BLog(BLOG_DEBUG, "Dispatching file descriptor");
-            bfd->handler(bfd->user, events);
-            continue;
-        }
-        
-        #endif
         
         wait_for_events(bsys);
     }
@@ -1084,13 +540,9 @@ int BReactor_Synchronize (BReactor *bsys, BSmallPending *ref)
     return 0;
 }
 
-#ifndef BADVPN_USE_WINAPI
-
 int BReactor_AddFileDescriptor (BReactor *bsys, BFileDescriptor *bs)
 {
     ASSERT(!bs->active)
-    
-    #ifdef BADVPN_USE_EPOLL
     
     // add epoll entry
     struct epoll_event event;
@@ -1106,34 +558,6 @@ int BReactor_AddFileDescriptor (BReactor *bsys, BFileDescriptor *bs)
     // set epoll returned pointer
     bs->epoll_returned_ptr = NULL;
     
-    #endif
-    
-    #ifdef BADVPN_USE_KEVENT
-    
-    // set kevent tag
-    bs->kevent_tag = KEVENT_TAG_FD;
-    
-    // have no events
-    bs->kevent_last_event = -1;
-    
-    #endif
-    
-    #ifdef BADVPN_USE_POLL
-    
-    if (bsys->poll_num_enabled_fds == BSYSTEM_MAX_POLL_FDS) {
-        BLog(BLOG_ERROR, "too many fds");
-        return 0;
-    }
-    
-    // append to enabled fds list
-    LinkedList1_Append(&bsys->poll_enabled_fds_list, &bs->poll_enabled_fds_list_node);
-    bsys->poll_num_enabled_fds++;
-    
-    // set not returned
-    bs->poll_returned_index = -1;
-    
-    #endif
-    
     bs->active = 1;
     bs->waitEvents = 0;
     
@@ -1147,8 +571,6 @@ void BReactor_RemoveFileDescriptor (BReactor *bsys, BFileDescriptor *bs)
     DebugCounter_Decrement(&bsys->d_fds_counter);
 
     bs->active = 0;
-
-    #ifdef BADVPN_USE_EPOLL
     
     // delete epoll entry
     struct epoll_event event;
@@ -1159,41 +581,6 @@ void BReactor_RemoveFileDescriptor (BReactor *bsys, BFileDescriptor *bs)
     if (bs->epoll_returned_ptr) {
         *bs->epoll_returned_ptr = NULL;
     }
-    
-    #endif
-    
-    #ifdef BADVPN_USE_KEVENT
-    
-    // delete kevents
-    update_kevent_fd_events(bsys, bs, 0);
-    
-    // invalidate any events
-    int event_index = bs->kevent_last_event;
-    while (event_index != -1) {
-        ASSERT(event_index >= 0 && event_index < bsys->kevent_results_num)
-        struct kevent *event = &bsys->kevent_results[event_index];
-        event->udata = NULL;
-        event_index = bsys->kevent_prev_event[event_index];
-    }
-    
-    #endif
-    
-    #ifdef BADVPN_USE_POLL
-    
-    // invalidate results entry
-    if (bs->poll_returned_index != -1) {
-        ASSERT(bs->poll_returned_index >= bsys->poll_results_pos)
-        ASSERT(bs->poll_returned_index < bsys->poll_results_num)
-        ASSERT(bsys->poll_results_bfds[bs->poll_returned_index] == bs)
-        
-        bsys->poll_results_bfds[bs->poll_returned_index] = NULL;
-    }
-    
-    // remove from enabled fds list
-    LinkedList1_Remove(&bsys->poll_enabled_fds_list, &bs->poll_enabled_fds_list_node);
-    bsys->poll_num_enabled_fds--;
-    
-    #endif
 }
 
 void BReactor_SetFileDescriptorEvents (BReactor *bsys, BFileDescriptor *bs, int events)
@@ -1204,8 +591,6 @@ void BReactor_SetFileDescriptorEvents (BReactor *bsys, BFileDescriptor *bs, int 
     if (bs->waitEvents == events) {
         return;
     }
-    
-    #ifdef BADVPN_USE_EPOLL
     
     // calculate epoll events
     int eevents = 0;
@@ -1223,19 +608,9 @@ void BReactor_SetFileDescriptorEvents (BReactor *bsys, BFileDescriptor *bs, int 
     event.data.ptr = bs;
     ASSERT_FORCE(epoll_ctl(bsys->efd, EPOLL_CTL_MOD, bs->fd, &event) == 0)
     
-    #endif
-    
-    #ifdef BADVPN_USE_KEVENT
-    
-    update_kevent_fd_events(bsys, bs, events);
-    
-    #endif
-    
     // update events
     bs->waitEvents = events;
 }
-
-#endif
 
 void BReactorLimit_Init (BReactorLimit *o, BReactor *reactor, int limit)
 {
@@ -1294,150 +669,3 @@ void BReactorLimit_SetLimit (BReactorLimit *o, int limit)
     // set limit
     o->limit = limit;
 }
-
-#ifdef BADVPN_USE_KEVENT
-
-int BReactorKEvent_Init (BReactorKEvent *o, BReactor *reactor, BReactorKEvent_handler handler, void *user, uintptr_t ident, short filter, u_int fflags, intptr_t data)
-{
-    DebugObject_Access(&reactor->d_obj);
-    
-    // init arguments
-    o->reactor = reactor;
-    o->handler = handler;
-    o->user = user;
-    o->ident = ident;
-    o->filter = filter;
-    
-    // add kevent
-    struct kevent event;
-    memset(&event, 0, sizeof(event));
-    event.ident = o->ident;
-    event.filter = o->filter;
-    event.flags = EV_ADD;
-    event.fflags = fflags;
-    event.data = data;
-    event.udata = &o->kevent_tag;
-    if (kevent(o->reactor->kqueue_fd, &event, 1, NULL, 0, NULL) < 0) {
-        return 0;
-    }
-    
-    // set kevent tag
-    o->kevent_tag = KEVENT_TAG_KEVENT;
-    
-    // have no events
-    o->kevent_last_event = -1;
-    
-    DebugObject_Init(&o->d_obj);
-    DebugCounter_Increment(&o->reactor->d_kevent_ctr);
-    return 1;
-}
-
-void BReactorKEvent_Free (BReactorKEvent *o)
-{
-    BReactor *reactor = o->reactor;
-    DebugObject_Free(&o->d_obj);
-    DebugCounter_Decrement(&reactor->d_kevent_ctr);
-    
-    // invalidate any events
-    int event_index = o->kevent_last_event;
-    while (event_index != -1) {
-        ASSERT(event_index >= 0 && event_index < reactor->kevent_results_num)
-        struct kevent *event = &reactor->kevent_results[event_index];
-        event->udata = NULL;
-        event_index = reactor->kevent_prev_event[event_index];
-    }
-    
-    // delete kevent
-    struct kevent event;
-    memset(&event, 0, sizeof(event));
-    event.ident = o->ident;
-    event.filter = o->filter;
-    event.flags = EV_DELETE;
-    ASSERT_FORCE(kevent(reactor->kqueue_fd, &event, 1, NULL, 0, NULL) == 0)
-}
-
-#endif
-
-#ifdef BADVPN_USE_WINAPI
-
-HANDLE BReactor_GetIOCPHandle (BReactor *reactor)
-{
-    DebugObject_Access(&reactor->d_obj);
-    
-    return reactor->iocp_handle;
-}
-
-void BReactorIOCPOverlapped_Init (BReactorIOCPOverlapped *o, BReactor *reactor, void *user, BReactorIOCPOverlapped_handler handler)
-{
-    DebugObject_Access(&reactor->d_obj);
-    
-    // init arguments
-    o->reactor = reactor;
-    o->user = user;
-    o->handler = handler;
-    
-    // zero overlapped
-    memset(&o->olap, 0, sizeof(o->olap));
-    
-    // append to IOCP list
-    LinkedList1_Append(&reactor->iocp_list, &o->iocp_list_node);
-    
-    // set not ready
-    o->is_ready = 0;
-    
-    DebugObject_Init(&o->d_obj);
-}
-
-void BReactorIOCPOverlapped_Free (BReactorIOCPOverlapped *o)
-{
-    BReactor *reactor = o->reactor;
-    DebugObject_Free(&o->d_obj);
-    
-    // remove from IOCP ready list
-    if (o->is_ready) {
-        LinkedList1_Remove(&reactor->iocp_ready_list, &o->ready_list_node);
-    }
-    
-    // remove from IOCP list
-    LinkedList1_Remove(&reactor->iocp_list, &o->iocp_list_node);
-}
-
-void BReactorIOCPOverlapped_Wait (BReactorIOCPOverlapped *o, int *out_succeeded, DWORD *out_bytes)
-{
-    BReactor *reactor = o->reactor;
-    DebugObject_Access(&o->d_obj);
-    
-    // wait for IOCP events until we get an event for this olap
-    while (!o->is_ready) {
-        DWORD bytes = 0;
-        ULONG_PTR key;
-        BReactorIOCPOverlapped *olap = NULL;
-        BOOL res = GetQueuedCompletionStatus(reactor->iocp_handle, &bytes, &key, (OVERLAPPED **)&olap, INFINITE);
-        
-        ASSERT_FORCE(olap)
-        DebugObject_Access(&olap->d_obj);
-        ASSERT(olap->reactor == reactor)
-        
-        // regular I/O should be done synchronously, so we shoudln't ever get a second completion before an
-        // existing one is dispatched. If however PostQueuedCompletionStatus is being used to signal events,
-        // just discard any excess events.
-        if (!olap->is_ready) {
-            set_iocp_ready(olap, (res == TRUE), bytes);
-        }
-    }
-    
-    // remove from IOCP ready list
-    LinkedList1_Remove(&reactor->iocp_ready_list, &o->ready_list_node);
-    
-    // set not ready
-    o->is_ready = 0;
-    
-    if (out_succeeded) {
-        *out_succeeded = o->ready_succeeded;
-    }
-    if (out_bytes) {
-        *out_bytes = o->ready_bytes;
-    }
-}
-
-#endif

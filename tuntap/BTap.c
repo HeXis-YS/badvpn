@@ -30,31 +30,16 @@
 #include <string.h>
 #include <stdio.h>
 
-#ifdef BADVPN_USE_WINAPI
-    #include <windows.h>
-    #include <winioctl.h>
-    #include <objbase.h>
-    #include <wtypes.h>
-    #include "wintap-common.h"
-    #include <tuntap/tapwin32-funcs.h>
-#else
-    #include <fcntl.h>
-    #include <unistd.h>
-    #include <errno.h>
-    #include <sys/ioctl.h>
-    #include <sys/types.h>
-    #include <sys/stat.h>
-    #include <sys/socket.h>
-    #include <net/if.h>
-    #include <net/if_arp.h>
-    #ifdef BADVPN_LINUX
-        #include <linux/if_tun.h>
-    #endif
-    #ifdef BADVPN_FREEBSD
-        #include <net/if_tun.h>
-        #include <net/if_tap.h>
-    #endif
-#endif
+#include <fcntl.h>
+#include <unistd.h>
+#include <errno.h>
+#include <sys/ioctl.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <sys/socket.h>
+#include <net/if.h>
+#include <net/if_arp.h>
+#include <linux/if_tun.h>
 
 #include <base/BLog.h>
 
@@ -64,32 +49,6 @@
 
 static void report_error (BTap *o);
 static void output_handler_recv (BTap *o, uint8_t *data);
-
-#ifdef BADVPN_USE_WINAPI
-
-static void recv_olap_handler (BTap *o, int event, DWORD bytes)
-{
-    DebugObject_Access(&o->d_obj);
-    ASSERT(o->output_packet)
-    ASSERT(event == BREACTOR_IOCP_EVENT_SUCCEEDED || event == BREACTOR_IOCP_EVENT_FAILED)
-    
-    // set no output packet
-    o->output_packet = NULL;
-    
-    if (event == BREACTOR_IOCP_EVENT_FAILED) {
-        BLog(BLOG_ERROR, "read operation failed");
-        report_error(o);
-        return;
-    }
-    
-    ASSERT(bytes >= 0)
-    ASSERT(bytes <= o->frame_mtu)
-    
-    // done
-    PacketRecvInterface_Done(&o->output, bytes);
-}
-
-#else
 
 static void fd_handler (BTap *o, int events)
 {
@@ -131,8 +90,6 @@ static void fd_handler (BTap *o, int events)
     } while (0);
 }
 
-#endif
-
 void report_error (BTap *o)
 {
     DEBUGERROR(&o->d_err, o->handler_error(o->handler_error_user));
@@ -144,22 +101,6 @@ void output_handler_recv (BTap *o, uint8_t *data)
     DebugError_AssertNoError(&o->d_err);
     ASSERT(data)
     ASSERT(!o->output_packet)
-    
-#ifdef BADVPN_USE_WINAPI
-    
-    memset(&o->recv_olap.olap, 0, sizeof(o->recv_olap.olap));
-    
-    // read
-    BOOL res = ReadFile(o->device, data, o->frame_mtu, NULL, &o->recv_olap.olap);
-    if (res == FALSE && GetLastError() != ERROR_IO_PENDING) {
-        BLog(BLOG_ERROR, "ReadFile failed (%u)", GetLastError());
-        report_error(o);
-        return;
-    }
-    
-    o->output_packet = data;
-    
-#else
     
     // attempt read
     int bytes = read(o->fd, data, o->frame_mtu);
@@ -182,8 +123,6 @@ void output_handler_recv (BTap *o, uint8_t *data)
     ASSERT_FORCE(bytes <= o->frame_mtu)
     
     PacketRecvInterface_Done(&o->output, bytes);
-    
-#endif
 }
 
 int BTap_Init (BTap *o, BReactor *reactor, char *devname, BTap_handler_error handler_error, void *handler_error_user, int tun)
@@ -207,120 +146,6 @@ int BTap_Init2 (BTap *o, BReactor *reactor, struct BTap_init_data init_data, BTa
     o->handler_error = handler_error;
     o->handler_error_user = handler_error_user;
     
-    #ifdef BADVPN_USE_WINAPI
-    
-    ASSERT(init_data.init_type == BTAP_INIT_STRING)
-    
-    // parse device specification
-    
-    if (!init_data.init.string) {
-        BLog(BLOG_ERROR, "no device specification provided");
-        goto fail0;
-    }
-    
-    char *device_component_id;
-    char *device_name;
-    uint32_t tun_addrs[3];
-    
-    if (init_data.dev_type == BTAP_DEV_TUN) {
-        if (!tapwin32_parse_tun_spec(init_data.init.string, &device_component_id, &device_name, tun_addrs)) {
-            BLog(BLOG_ERROR, "failed to parse TUN device specification");
-            goto fail0;
-        }
-    } else {
-        if (!tapwin32_parse_tap_spec(init_data.init.string, &device_component_id, &device_name)) {
-            BLog(BLOG_ERROR, "failed to parse TAP device specification");
-            goto fail0;
-        }
-    }
-    
-    // locate device path
-    
-    char device_path[TAPWIN32_MAX_REG_SIZE];
-    
-    BLog(BLOG_INFO, "Looking for TAP-Win32 with component ID %s, name %s", device_component_id, device_name);
-    
-    if (!tapwin32_find_device(device_component_id, device_name, &device_path)) {
-        BLog(BLOG_ERROR, "Could not find device");
-        goto fail1;
-    }
-    
-    // open device
-    
-    BLog(BLOG_INFO, "Opening device %s", device_path);
-    
-    o->device = CreateFile(device_path, GENERIC_READ | GENERIC_WRITE, 0, 0, OPEN_EXISTING, FILE_ATTRIBUTE_SYSTEM|FILE_FLAG_OVERLAPPED, 0);
-    if (o->device == INVALID_HANDLE_VALUE) {
-        BLog(BLOG_ERROR, "CreateFile failed");
-        goto fail1;
-    }
-    
-    // set TUN if needed
-    
-    DWORD len;
-    
-    if (init_data.dev_type == BTAP_DEV_TUN) {
-        if (!DeviceIoControl(o->device, TAP_IOCTL_CONFIG_TUN, tun_addrs, sizeof(tun_addrs), tun_addrs, sizeof(tun_addrs), &len, NULL)) {
-            BLog(BLOG_ERROR, "DeviceIoControl(TAP_IOCTL_CONFIG_TUN) failed");
-            goto fail2;
-        }
-    }
-    
-    // get MTU
-    
-    ULONG umtu = 0;
-    
-    if (!DeviceIoControl(o->device, TAP_IOCTL_GET_MTU, &umtu, sizeof(umtu), &umtu, sizeof(umtu), &len, NULL)) {
-        BLog(BLOG_ERROR, "DeviceIoControl(TAP_IOCTL_GET_MTU) failed");
-        goto fail2;
-    }
-    
-    if (init_data.dev_type == BTAP_DEV_TUN) {
-        o->frame_mtu = umtu;
-    } else {
-        o->frame_mtu = umtu + BTAP_ETHERNET_HEADER_LENGTH;
-    }
-    
-    // set connected
-    
-    ULONG upstatus = TRUE;
-    if (!DeviceIoControl(o->device, TAP_IOCTL_SET_MEDIA_STATUS, &upstatus, sizeof(upstatus), &upstatus, sizeof(upstatus), &len, NULL)) {
-        BLog(BLOG_ERROR, "DeviceIoControl(TAP_IOCTL_SET_MEDIA_STATUS) failed");
-        goto fail2;
-    }
-    
-    BLog(BLOG_INFO, "Device opened");
-    
-    // associate device with IOCP
-    
-    if (!CreateIoCompletionPort(o->device, BReactor_GetIOCPHandle(o->reactor), 0, 0)) {
-        BLog(BLOG_ERROR, "CreateIoCompletionPort failed");
-        goto fail2;
-    }
-    
-    // init send olap
-    BReactorIOCPOverlapped_Init(&o->send_olap, o->reactor, o, NULL);
-    
-    // init recv olap
-    BReactorIOCPOverlapped_Init(&o->recv_olap, o->reactor, o, (BReactorIOCPOverlapped_handler)recv_olap_handler);
-    
-    free(device_name);
-    free(device_component_id);
-    
-    goto success;
-    
-fail2:
-    ASSERT_FORCE(CloseHandle(o->device))
-fail1:
-    free(device_name);
-    free(device_component_id);
-fail0:
-    return 0;
-    
-    #endif
-    
-    #if defined(BADVPN_LINUX) || defined(BADVPN_FREEBSD)
-    
     o->close_fd = (init_data.init_type != BTAP_INIT_FD);
     
     switch (init_data.init_type) {
@@ -335,8 +160,6 @@ fail0:
         
         case BTAP_INIT_STRING: {
             char devname_real[IFNAMSIZ];
-            
-            #ifdef BADVPN_LINUX
             
             // open device
             
@@ -365,43 +188,6 @@ fail0:
             }
             
             strcpy(devname_real, ifr.ifr_name);
-            
-            #endif
-            
-            #ifdef BADVPN_FREEBSD
-            
-            if (init_data.dev_type == BTAP_DEV_TUN) {
-                BLog(BLOG_ERROR, "TUN not supported on FreeBSD");
-                goto fail0;
-            }
-            
-            if (!init_data.init.string) {
-                BLog(BLOG_ERROR, "no device specified");
-                goto fail0;
-            }
-            
-            // open device
-            
-            char devnode[10 + IFNAMSIZ];
-            snprintf(devnode, sizeof(devnode), "/dev/%s", init_data.init.string);
-            
-            if ((o->fd = open(devnode, O_RDWR)) < 0) {
-                BLog(BLOG_ERROR, "error opening device");
-                goto fail0;
-            }
-            
-            // get name
-            
-            struct ifreq ifr;
-            memset(&ifr, 0, sizeof(ifr));
-            if (ioctl(o->fd, TAPGIFNAME, (void *)&ifr) < 0) {
-                BLog(BLOG_ERROR, "error configuring device");
-                goto fail1;
-            }
-            
-            strcpy(devname_real, ifr.ifr_name);
-            
-            #endif
             
             // get MTU
             
@@ -454,10 +240,7 @@ fail1:
         ASSERT_FORCE(close(o->fd) == 0)
     }
 fail0:
-    return 0;
-    
-    #endif
-    
+    return 0;    
 success:
     // init output
     PacketRecvInterface_Init(&o->output, o->frame_mtu, (PacketRecvInterface_handler_recv)output_handler_recv, o, BReactor_PendingGroup(o->reactor));
@@ -478,28 +261,6 @@ void BTap_Free (BTap *o)
     // free output
     PacketRecvInterface_Free(&o->output);
     
-#ifdef BADVPN_USE_WINAPI
-    
-    // cancel I/O
-    ASSERT_FORCE(CancelIo(o->device))
-    
-    // wait receiving to finish
-    if (o->output_packet) {
-        BLog(BLOG_DEBUG, "waiting for receiving to finish");
-        BReactorIOCPOverlapped_Wait(&o->recv_olap, NULL, NULL);
-    }
-    
-    // free recv olap
-    BReactorIOCPOverlapped_Free(&o->recv_olap);
-    
-    // free send olap
-    BReactorIOCPOverlapped_Free(&o->send_olap);
-    
-    // close device
-    ASSERT_FORCE(CloseHandle(o->device))
-    
-#else
-    
     // free BFileDescriptor
     BReactor_RemoveFileDescriptor(o->reactor, &o->bfd);
     
@@ -507,8 +268,6 @@ void BTap_Free (BTap *o)
         // close file descriptor
         ASSERT_FORCE(close(o->fd) == 0)
     }
-    
-#endif
 }
 
 int BTap_GetMTU (BTap *o)
@@ -525,40 +284,6 @@ void BTap_Send (BTap *o, uint8_t *data, int data_len)
     ASSERT(data_len >= 0)
     ASSERT(data_len <= o->frame_mtu)
     
-#ifdef BADVPN_USE_WINAPI
-    
-    // ignore frames without an Ethernet header, or we get errors in WriteFile
-    if (data_len < 14) {
-        return;
-    }
-    
-    memset(&o->send_olap.olap, 0, sizeof(o->send_olap.olap));
-    
-    // write
-    BOOL res = WriteFile(o->device, data, data_len, NULL, &o->send_olap.olap);
-    if (res == FALSE && GetLastError() != ERROR_IO_PENDING) {
-        BLog(BLOG_ERROR, "WriteFile failed (%u)", GetLastError());
-        return;
-    }
-    
-    // wait
-    int succeeded;
-    DWORD bytes;
-    BReactorIOCPOverlapped_Wait(&o->send_olap, &succeeded, &bytes);
-    
-    if (!succeeded) {
-        BLog(BLOG_ERROR, "write operation failed");
-    } else {
-        ASSERT(bytes >= 0)
-        ASSERT(bytes <= data_len)
-        
-        if (bytes < data_len) {
-            BLog(BLOG_ERROR, "write operation didn't write everything");
-        }
-    }
-    
-#else
-    
     int bytes = write(o->fd, data, data_len);
     if (bytes < 0) {
         // malformed packets will cause errors, ignore them and act like
@@ -568,8 +293,6 @@ void BTap_Send (BTap *o, uint8_t *data, int data_len)
             BLog(BLOG_WARNING, "written %d expected %d", bytes, data_len);
         }
     }
-    
-#endif
 }
 
 PacketRecvInterface * BTap_GetOutput (BTap *o)

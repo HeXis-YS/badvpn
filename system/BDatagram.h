@@ -147,7 +147,6 @@ int BDatagram_GetLocalAddr (BDatagram *o, BAddr *local_addr);
  */
 int BDatagram_GetLocalPort (BDatagram *o, uint16_t *local_port);
 
-#ifndef BADVPN_USE_WINAPI
 /**
  * Returns the underlying socket file descriptor of the datagram object.
  * Available on Unix-like systems only.
@@ -156,7 +155,6 @@ int BDatagram_GetLocalPort (BDatagram *o, uint16_t *local_port);
  * @return file descriptor
  */
 int BDatagram_GetFd (BDatagram *o);
-#endif
 
 /**
  * Sets the SO_REUSEADDR option for the underlying socket.
@@ -224,10 +222,6 @@ void BDatagram_RecvAsync_Free (BDatagram *o);
  */
 PacketRecvInterface * BDatagram_RecvAsync_GetIf (BDatagram *o);
 
-#ifdef BADVPN_USE_WINAPI
-#include "BDatagram_win.h"
-#else
 #include "BDatagram_unix.h"
-#endif
 
 #endif

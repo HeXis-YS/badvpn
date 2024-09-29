@@ -37,13 +37,11 @@
 #if (defined(BADVPN_USE_WINAPI) + defined(BADVPN_LINUX) + defined(BADVPN_FREEBSD)) != 1
 #error Unknown TAP backend or too many TAP backends
 #endif
+#ifndef BADVPN_LINUX
+#error Only support Linux as TAP backend
+#endif
 
 #include <stdint.h>
-
-#ifdef BADVPN_USE_WINAPI
-#else
-#include <net/if.h>
-#endif
 
 #include <misc/debug.h>
 #include <misc/debugerror.h>
@@ -70,16 +68,10 @@ typedef struct {
     PacketRecvInterface output;
     uint8_t *output_packet;
     
-#ifdef BADVPN_USE_WINAPI
-    HANDLE device;
-    BReactorIOCPOverlapped send_olap;
-    BReactorIOCPOverlapped recv_olap;
-#else
     int close_fd;
     int fd;
     BFileDescriptor bfd;
     int poll_events;
-#endif
     
     DebugError d_err;
     DebugObject d_obj;
@@ -111,9 +103,7 @@ enum BTap_dev_type {BTAP_DEV_TUN, BTAP_DEV_TAP};
 
 enum BTap_init_type {
     BTAP_INIT_STRING,
-#ifndef BADVPN_USE_WINAPI
     BTAP_INIT_FD,
-#endif
 };
 
 struct BTap_init_data {

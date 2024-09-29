@@ -34,14 +34,8 @@
 #ifndef BADVPN_SYSTEM_BTIME_H
 #define BADVPN_SYSTEM_BTIME_H
 
-#if defined(BADVPN_USE_WINAPI)
-#include <windows.h>
-#elif defined(BADVPN_EMSCRIPTEN)
-#include <emscripten/emscripten.h>
-#else
 #include <time.h>
 #include <sys/time.h>
-#endif
 
 #include <stdint.h>
 
@@ -59,14 +53,8 @@ struct _BTime_global {
     #ifndef NDEBUG
     int initialized; // initialized statically
     #endif
-    #if defined(BADVPN_USE_WINAPI)
-    LARGE_INTEGER start_time;
-    #elif defined(BADVPN_EMSCRIPTEN)
-    btime_t start_time;
-    #else
     btime_t start_time;
     int use_gettimeofday;
-    #endif
 };
 
 extern struct _BTime_global btime_global;
@@ -74,16 +62,6 @@ extern struct _BTime_global btime_global;
 static void BTime_Init (void)
 {
     ASSERT(!btime_global.initialized)
-    
-    #if defined(BADVPN_USE_WINAPI)
-    
-    ASSERT_FORCE(QueryPerformanceCounter(&btime_global.start_time))
-    
-    #elif defined(BADVPN_EMSCRIPTEN)
-    
-    btime_global.start_time = emscripten_get_now();
-    
-    #else
     
     struct timespec ts;
     if (clock_gettime(CLOCK_MONOTONIC, &ts) < 0) {
@@ -99,8 +77,6 @@ static void BTime_Init (void)
         btime_global.use_gettimeofday = 0;
     }
     
-    #endif
-    
     #ifndef NDEBUG
     btime_global.initialized = 1;
     #endif
@@ -109,20 +85,6 @@ static void BTime_Init (void)
 static btime_t btime_gettime (void)
 {
     ASSERT(btime_global.initialized)
-    
-    #if defined(BADVPN_USE_WINAPI)
-    
-    LARGE_INTEGER count;
-    LARGE_INTEGER freq;
-    ASSERT_FORCE(QueryPerformanceCounter(&count))
-    ASSERT_FORCE(QueryPerformanceFrequency(&freq))
-    return (((count.QuadPart - btime_global.start_time.QuadPart) * 1000) / freq.QuadPart);
-    
-    #elif defined(BADVPN_EMSCRIPTEN)
-    
-    return (btime_t)emscripten_get_now() - btime_global.start_time;
-    
-    #else
     
     if (btime_global.use_gettimeofday) {
         struct timeval tv;
@@ -133,8 +95,6 @@ static btime_t btime_gettime (void)
         ASSERT_FORCE(clock_gettime(CLOCK_MONOTONIC, &ts) == 0)
         return (((int64_t)ts.tv_sec * 1000 + (int64_t)ts.tv_nsec/1000000) - btime_global.start_time);
     }
-    
-    #endif
 }
 
 static btime_t btime_add (btime_t t1, btime_t t2)

@@ -38,24 +38,11 @@
 #if (defined(BADVPN_USE_WINAPI) + defined(BADVPN_USE_EPOLL) + defined(BADVPN_USE_KEVENT) + defined(BADVPN_USE_POLL)) != 1
 #error Unknown event backend or too many event backends
 #endif
-
-#ifdef BADVPN_USE_WINAPI
-#include <windows.h>
+#ifndef BADVPN_USE_EPOLL
+#error Only support EPOLL as event backend
 #endif
 
-#ifdef BADVPN_USE_EPOLL
 #include <sys/epoll.h>
-#endif
-
-#ifdef BADVPN_USE_KEVENT
-#include <sys/types.h>
-#include <sys/event.h>
-#include <sys/time.h>
-#endif
-
-#ifdef BADVPN_USE_POLL
-#include <poll.h>
-#endif
 
 #include <stdint.h>
 
@@ -164,8 +151,6 @@ void BTimer_Init (BTimer *bt, btime_t msTime, BTimer_handler handler, void *user
  */
 int BTimer_IsRunning (BTimer *bt);
 
-#ifndef BADVPN_USE_WINAPI
-
 struct BFileDescriptor_t;
 
 #define BREACTOR_READ (1 << 0)
@@ -197,19 +182,7 @@ typedef struct BFileDescriptor_t {
     int active;
     int waitEvents;
     
-    #ifdef BADVPN_USE_EPOLL
     struct BFileDescriptor_t **epoll_returned_ptr;
-    #endif
-    
-    #ifdef BADVPN_USE_KEVENT
-    int kevent_tag;
-    int kevent_last_event;
-    #endif
-    
-    #ifdef BADVPN_USE_POLL
-    LinkedList1Node poll_enabled_fds_list_node;
-    int poll_returned_index;
-    #endif
 } BFileDescriptor;
 
 /**
@@ -222,8 +195,6 @@ typedef struct BFileDescriptor_t {
  * @param user value passed to the handler functuon
  */
 void BFileDescriptor_Init (BFileDescriptor *bs, int fd, BFileDescriptor_handler handler, void *user);
-
-#endif
 
 // BReactor
 
@@ -249,43 +220,13 @@ typedef struct {
     // limits
     LinkedList1 active_limits_list;
     
-    #ifdef BADVPN_USE_WINAPI
-    LinkedList1 iocp_list;
-    HANDLE iocp_handle;
-    LinkedList1 iocp_ready_list;
-    #endif
-    
-    #ifdef BADVPN_USE_EPOLL
     int efd; // epoll fd
     struct epoll_event epoll_results[BSYSTEM_MAX_RESULTS]; // epoll returned events buffer
     int epoll_results_num; // number of events in the array
     int epoll_results_pos; // number of events processed so far
-    #endif
-    
-    #ifdef BADVPN_USE_KEVENT
-    int kqueue_fd;
-    struct kevent kevent_results[BSYSTEM_MAX_RESULTS];
-    int kevent_prev_event[BSYSTEM_MAX_RESULTS];
-    int kevent_results_num;
-    int kevent_results_pos;
-    #endif
-    
-    #ifdef BADVPN_USE_POLL
-    LinkedList1 poll_enabled_fds_list;
-    int poll_num_enabled_fds;
-    int poll_results_num;
-    int poll_results_pos;
-    struct pollfd *poll_results_pollfds;
-    BFileDescriptor **poll_results_bfds;
-    #endif
     
     DebugObject d_obj;
-    #ifndef BADVPN_USE_WINAPI
     DebugCounter d_fds_counter;
-    #endif
-    #ifdef BADVPN_USE_KEVENT
-    DebugCounter d_kevent_ctr;
-    #endif
     DebugCounter d_limits_ctr;
 } BReactor;
 
@@ -436,8 +377,6 @@ BPendingGroup * BReactor_PendingGroup (BReactor *bsys);
  */
 int BReactor_Synchronize (BReactor *bsys, BSmallPending *ref);
 
-#ifndef BADVPN_USE_WINAPI
-
 /**
  * Starts monitoring a file descriptor.
  *
@@ -471,8 +410,6 @@ void BReactor_RemoveFileDescriptor (BReactor *bsys, BFileDescriptor *bs);
  *               This overrides previosly monitored events.
  */
 void BReactor_SetFileDescriptorEvents (BReactor *bsys, BFileDescriptor *bs, int events);
-
-#endif
 
 typedef struct {
     BReactor *reactor;
@@ -520,54 +457,5 @@ int BReactorLimit_Increment (BReactorLimit *o);
  * @param limit new limit. Must be >0.
  */
 void BReactorLimit_SetLimit (BReactorLimit *o, int limit);
-
-#ifdef BADVPN_USE_KEVENT
-
-typedef void (*BReactorKEvent_handler) (void *user, u_int fflags, intptr_t data);
-
-typedef struct {
-    BReactor *reactor;
-    BReactorKEvent_handler handler;
-    void *user;
-    uintptr_t ident;
-    short filter;
-    int kevent_tag;
-    int kevent_last_event;
-    DebugObject d_obj;
-} BReactorKEvent;
-
-int BReactorKEvent_Init (BReactorKEvent *o, BReactor *reactor, BReactorKEvent_handler handler, void *user, uintptr_t ident, short filter, u_int fflags, intptr_t data);
-void BReactorKEvent_Free (BReactorKEvent *o);
-
-#endif
-
-#ifdef BADVPN_USE_WINAPI
-
-#define BREACTOR_IOCP_EVENT_SUCCEEDED 1
-#define BREACTOR_IOCP_EVENT_FAILED 2
-#define BREACTOR_IOCP_EVENT_EXITING 3
-
-typedef void (*BReactorIOCPOverlapped_handler) (void *user, int event, DWORD bytes);
-
-typedef struct {
-    OVERLAPPED olap;
-    BReactor *reactor;
-    void *user;
-    BReactorIOCPOverlapped_handler handler;
-    LinkedList1Node iocp_list_node;
-    int is_ready;
-    LinkedList1Node ready_list_node;
-    int ready_succeeded;
-    DWORD ready_bytes;
-    DebugObject d_obj;
-} BReactorIOCPOverlapped;
-
-HANDLE BReactor_GetIOCPHandle (BReactor *reactor);
-
-void BReactorIOCPOverlapped_Init (BReactorIOCPOverlapped *o, BReactor *reactor, void *user, BReactorIOCPOverlapped_handler handler);
-void BReactorIOCPOverlapped_Free (BReactorIOCPOverlapped *o);
-void BReactorIOCPOverlapped_Wait (BReactorIOCPOverlapped *o, int *out_succeeded, DWORD *out_bytes);
-
-#endif
 
 #endif

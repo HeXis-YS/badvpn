@@ -40,14 +40,10 @@
 #include <string.h>
 #include <stdio.h>
 
-#ifdef BADVPN_USE_WINAPI
-#include <ws2tcpip.h>
-#else
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netdb.h>
 #include <netinet/in.h>
-#endif
 
 #include <misc/byteorder.h>
 #include <misc/debug.h>
@@ -58,9 +54,7 @@
 #define BADDR_TYPE_NONE 0
 #define BADDR_TYPE_IPV4 1
 #define BADDR_TYPE_IPV6 2
-#ifdef BADVPN_LINUX
-    #define BADDR_TYPE_PACKET 5
-#endif
+#define BADDR_TYPE_PACKET 5
 
 #define BADDR_MAX_ADDR_LEN 128
 
@@ -549,8 +543,6 @@ void BAddr_InitFromIpaddrAndPort (BAddr *addr, BIPAddr ipaddr, uint16_t port)
     *addr = BAddr_MakeFromIpaddrAndPort(ipaddr, port);
 }
 
-#ifdef BADVPN_LINUX
-
 void BAddr_InitPacket (BAddr *addr, uint16_t phys_proto, int interface_index, int header_type, int packet_type, uint8_t *phys_addr)
 {
     ASSERT(header_type == BADDR_PACKET_HEADER_TYPE_ETHERNET)
@@ -566,17 +558,13 @@ void BAddr_InitPacket (BAddr *addr, uint16_t phys_proto, int interface_index, in
     memcpy(addr->packet.phys_addr, phys_addr, 6);
 }
 
-#endif
-
 void BAddr_Assert (BAddr *addr)
 {
     switch (addr->type) {
         case BADDR_TYPE_NONE:
         case BADDR_TYPE_IPV4:
         case BADDR_TYPE_IPV6:
-        #ifdef BADVPN_LINUX
         case BADDR_TYPE_PACKET:
-        #endif
             return;
         default:
             ASSERT(0);
@@ -610,7 +598,6 @@ void BAddr_Print (BAddr *addr, char *out)
             BIPAddr_Print(&ipaddr, out);
             sprintf(out + strlen(out), ":%"PRIu16, ntoh16(addr->ipv6.port));
             break;
-        #ifdef BADVPN_LINUX
         case BADDR_TYPE_PACKET:
             ASSERT(addr->packet.header_type == BADDR_PACKET_HEADER_TYPE_ETHERNET)
             sprintf(out, "proto=%"PRIu16",ifindex=%d,htype=eth,ptype=%d,addr=%02"PRIx8":%02"PRIx8":%02"PRIx8":%02"PRIx8":%02"PRIx8":%02"PRIx8,
@@ -618,7 +605,6 @@ void BAddr_Print (BAddr *addr, char *out)
                     addr->packet.phys_addr[0], addr->packet.phys_addr[1], addr->packet.phys_addr[2],
                     addr->packet.phys_addr[3], addr->packet.phys_addr[4], addr->packet.phys_addr[5]);
             break;
-        #endif
         default:
             ASSERT(0);
     }
