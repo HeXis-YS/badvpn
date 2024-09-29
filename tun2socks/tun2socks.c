@@ -145,7 +145,6 @@ struct {
     int append_source_to_username;
     int socks5_udp;
     int tun_mtu;
-    int fake_proc;
     char *sock_path;
 } options;
 
@@ -605,7 +604,6 @@ void print_help (const char *name)
         "        )\n"
         "        [--loglevel <0-5/none/error/warning/notice/info/debug>]\n"
         "        [--channel-loglevel <channel-name> <0-5/none/error/warning/notice/info/debug>] ...\n"
-        "        [--fake-proc]\n"
         "        [--tunfd <fd>]\n"
         "        [--tunmtu <mtu>]\n"
         "        [--dnsgw <dns_gateway_address>]\n"
@@ -647,7 +645,6 @@ int parse_arguments (int argc, char *argv[])
         options.loglevels[i] = -1;
     }
     options.tun_mtu = 1500;
-    options.fake_proc = 0;
     options.sock_path = NULL;
     options.netif_ipaddr = NULL;
     options.netif_netmask = NULL;
@@ -730,9 +727,6 @@ int parse_arguments (int argc, char *argv[])
             }
             options.loglevels[channel] = loglevel;
             i += 2;
-        }
-        else if (!strcmp(arg, "--fake-proc")) {
-            options.fake_proc = 1;
         }
         else if (!strcmp(arg, "--tunmtu")) {
             if (1 >= argc - i) {
