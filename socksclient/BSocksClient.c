@@ -201,17 +201,11 @@ void continue_job_handler (BSocksClient *o)
     DebugObject_Access(&o->d_obj);
     ASSERT(o->state == STATE_CONNECTED_HANDLER)
 
-    // check number of methods
-    if (o->num_auth_info == 0 || o->num_auth_info > 255) {
-        BLog(BLOG_ERROR, "invalid number of authentication methods");
-        goto fail0;
-    }
-    
     // allocate buffer for sending hello
     bsize_t size = bsize_add(
         bsize_fromsize(sizeof(struct socks_client_hello_header)), 
         bsize_mul(
-            bsize_fromsize(o->num_auth_info),
+            bsize_fromsize(1),
             bsize_fromsize(sizeof(struct socks_client_hello_method))
         )
     );
@@ -222,15 +216,13 @@ void continue_job_handler (BSocksClient *o)
     // write hello header
     struct socks_client_hello_header header;
     header.ver = hton8(SOCKS_VERSION);
-    header.nmethods = hton8(o->num_auth_info);
+    header.nmethods = hton8(1);
     memcpy(o->buffer, &header, sizeof(header));
     
     // write hello methods
-    for (size_t i = 0; i < o->num_auth_info; i++) {
-        struct socks_client_hello_method method;
-        method.method = hton8(o->auth_info[i].auth_type);
-        memcpy(o->buffer + sizeof(header) + i * sizeof(method), &method, sizeof(method));
-    }
+    struct socks_client_hello_method method;
+    method.method = hton8(SOCKS_METHOD_NO_AUTHENTICATION_REQUIRED);
+    memcpy(o->buffer + sizeof(header), &method, sizeof(method));
     
     // send
     PacketPassInterface_Sender_Send(o->control.send_if, (uint8_t *)o->buffer, size.value);
@@ -270,62 +262,14 @@ void recv_handler_done (BSocksClient *o, int data_len)
                 goto fail;
             }
             
-            size_t auth_index;
-            for (auth_index = 0; auth_index < o->num_auth_info; auth_index++) {
-                if (o->auth_info[auth_index].auth_type == ntoh8(imsg.method)) {
-                    break;
-                }
-            }
-            
-            if (auth_index == o->num_auth_info) {
+            if (SOCKS_METHOD_NO_AUTHENTICATION_REQUIRED != ntoh8(imsg.method)) {
                 BLog(BLOG_NOTICE, "server didn't accept any authentication method");
                 goto fail;
             }
-            
-            const struct BSocksClient_auth_info *ai = &o->auth_info[auth_index];
-            
-            switch (ai->auth_type) {
-                case SOCKS_METHOD_NO_AUTHENTICATION_REQUIRED: {
-                    BLog(BLOG_DEBUG, "no authentication");
-                    
-                    auth_finished(o);
-                } break;
-                
-                case SOCKS_METHOD_USERNAME_PASSWORD: {
-                    BLog(BLOG_DEBUG, "password authentication");
-                    
-                    if (ai->password.username_len == 0 || ai->password.username_len > 255 ||
-                        ai->password.password_len == 0 || ai->password.password_len > 255
-                    ) {
-                        BLog(BLOG_NOTICE, "invalid username/password length");
-                        goto fail;
-                    }
-                    
-                    // allocate password packet
-                    bsize_t size = bsize_fromsize(1 + 1 + ai->password.username_len + 1 + ai->password.password_len);
-                    if (!reserve_buffer(o, size)) {
-                        goto fail;
-                    }
-                    
-                    // write password packet
-                    char *ptr = o->buffer;
-                    *ptr++ = 1;
-                    *ptr++ = ai->password.username_len;
-                    memcpy(ptr, ai->password.username, ai->password.username_len);
-                    ptr += ai->password.username_len;
-                    *ptr++ = ai->password.password_len;
-                    memcpy(ptr, ai->password.password, ai->password.password_len);
-                    ptr += ai->password.password_len;
-                    
-                    // start sending
-                    PacketPassInterface_Sender_Send(o->control.send_if, (uint8_t *)o->buffer, size.value);
-                    
-                    // set state
-                    o->state = STATE_SENDING_PASSWORD;
-                } break;
-                
-                default: ASSERT(0);
-            }
+
+            BLog(BLOG_DEBUG, "no authentication");
+
+            auth_finished(o);
         } break;
         
         case STATE_SENT_REQUEST: {
@@ -364,22 +308,6 @@ void recv_handler_done (BSocksClient *o, int data_len)
             
             // set state
             o->state = STATE_RECEIVED_REPLY_HEADER;
-        } break;
-        
-        case STATE_SENT_PASSWORD: {
-            BLog(BLOG_DEBUG, "received password reply");
-            
-            if (o->buffer[0] != 1) {
-                BLog(BLOG_NOTICE, "password reply has unknown version");
-                goto fail;
-            }
-            
-            if (o->buffer[1] != 0) {
-                BLog(BLOG_NOTICE, "password reply is negative");
-                goto fail;
-            }
-            
-            auth_finished(o);
         } break;
         
         case STATE_RECEIVED_REPLY_HEADER: {
@@ -478,22 +406,6 @@ void send_handler_done (BSocksClient *o)
             o->state = STATE_SENT_REQUEST;
         } break;
         
-        case STATE_SENDING_PASSWORD: {
-            BLog(BLOG_DEBUG, "send password");
-            
-            // allocate buffer for receiving reply
-            bsize_t size = bsize_fromsize(2);
-            if (!reserve_buffer(o, size)) {
-                goto fail;
-            }
-            
-            // receive reply header
-            start_receive(o, (uint8_t *)o->buffer, size.value);
-            
-            // set state
-            o->state = STATE_SENT_PASSWORD;
-        } break;
-        
         default:
             ASSERT(0);
     }
@@ -557,39 +469,12 @@ void auth_finished (BSocksClient *o)
     o->state = STATE_SENDING_REQUEST;
 }
 
-struct BSocksClient_auth_info BSocksClient_auth_none (void)
-{
-    struct BSocksClient_auth_info info;
-    info.auth_type = SOCKS_METHOD_NO_AUTHENTICATION_REQUIRED;
-    return info;
-}
-
-struct BSocksClient_auth_info BSocksClient_auth_password (const char *username, size_t username_len, const char *password, size_t password_len)
-{
-    struct BSocksClient_auth_info info;
-    info.auth_type = SOCKS_METHOD_USERNAME_PASSWORD;
-    info.password.username = username;
-    info.password.username_len = username_len;
-    info.password.password = password;
-    info.password.password_len = password_len;
-    return info;
-}
-
-int BSocksClient_Init (BSocksClient *o, BAddr server_addr,
-    const struct BSocksClient_auth_info *auth_info, size_t num_auth_info, BAddr dest_addr,
+int BSocksClient_Init (BSocksClient *o, BAddr server_addr, BAddr dest_addr,
     bool udp, BSocksClient_handler handler, void *user, BReactor *reactor)
 {
     ASSERT(!BAddr_IsInvalid(&server_addr))
-#ifndef NDEBUG
-    for (size_t i = 0; i < num_auth_info; i++) {
-        ASSERT(auth_info[i].auth_type == SOCKS_METHOD_NO_AUTHENTICATION_REQUIRED ||
-               auth_info[i].auth_type == SOCKS_METHOD_USERNAME_PASSWORD)
-    }
-#endif
     
     // init arguments
-    o->auth_info = auth_info;
-    o->num_auth_info = num_auth_info;
     o->dest_addr = dest_addr;
     o->udp = udp;
     o->handler = handler;

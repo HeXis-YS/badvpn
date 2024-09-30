@@ -50,8 +50,6 @@ typedef void (*SocksUdpClient_handler_received) (
 
 typedef struct {
     BAddr server_addr;
-    const struct BSocksClient_auth_info *auth_info;
-    size_t num_auth_info;
     int num_connections;
     int max_connections;
     int send_buf_size;
@@ -100,9 +98,6 @@ struct SocksUdpClient_connection {
  * @param send_buf_size maximum number of buffered outgoing packets per connection
  * @param keepalive_time how long to track an idle local port before forgetting it
  * @param server_addr SOCKS5 server address
- * @param auth_info List of authentication info for BSocksClient. The pointer must remain
- *        valid while this object exists, the data is not copied.
- * @param num_auth_info Number of the above.
  * @param reactor reactor we live in
  * @param user value passed to handler
  * @param handler_received handler for incoming UDP packets
@@ -110,7 +105,6 @@ struct SocksUdpClient_connection {
  */
 int SocksUdpClient_Init (SocksUdpClient *o, int udp_mtu, int max_connections,
     int send_buf_size, btime_t keepalive_time, BAddr server_addr,
-    const struct BSocksClient_auth_info *auth_info, size_t num_auth_info,
     BReactor *reactor, void *user, SocksUdpClient_handler_received handler_received);
 
 /**

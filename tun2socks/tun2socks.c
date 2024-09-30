@@ -139,10 +139,6 @@ struct {
     char *netif_netmask;
     char *netif_ip6addr;
     char *socks_server_addr;
-    char *username;
-    char *password;
-    char *password_file;
-    int append_source_to_username;
     int socks5_udp;
     int tun_mtu;
     char *sock_path;
@@ -159,7 +155,6 @@ struct tcp_client {
     int client_closed;
     uint8_t buf[TCP_WND];
     int buf_used;
-    char *socks_username;
     BSocksClient socks_client;
     int socks_up;
     int socks_closed;
@@ -183,13 +178,6 @@ struct ipv6_addr netif_ip6addr;
 
 // SOCKS server address
 BAddr socks_server_addr;
-
-// allocated password file contents
-uint8_t *password_file_contents;
-
-// SOCKS authentication information
-struct BSocksClient_auth_info socks_auth_info[2];
-size_t socks_num_auth_info;
 
 // reactor
 BReactor ss;
@@ -411,9 +399,6 @@ int main (int argc, char **argv)
         goto fail1;
     }
 
-    // clear password contents pointer
-    password_file_contents = NULL;
-
     // initialize network
     if (!BNetwork_GlobalInit()) {
         BLog(BLOG_ERROR, "BNetwork_GlobalInit failed");
@@ -486,7 +471,7 @@ int main (int argc, char **argv)
         // init SOCKS UDP client
         SocksUdpClient_Init(&socks_udp_client, udp_mtu, DEFAULT_UDPGW_MAX_CONNECTIONS,
             SOCKS_UDP_SEND_BUFFER_PACKETS, UDPGW_KEEPALIVE_TIME, socks_server_addr,
-            socks_auth_info, socks_num_auth_info, &ss, NULL, udp_send_packet_to_device);
+            &ss, NULL, udp_send_packet_to_device);
     } else {
         udp_mode = UdpModeNone;
     }
@@ -568,7 +553,6 @@ fail3:
 fail2:
     BReactor_Free(&ss);
 fail1:
-    BFree(password_file_contents);
     BLog(BLOG_NOTICE, "exiting");
     BLog_Free();
 fail0:
@@ -612,10 +596,6 @@ void print_help (const char *name)
         "        --netif-netmask <ipnetmask>\n"
         "        --socks-server-addr <addr>\n"
         "        [--netif-ip6addr <addr>]\n"
-        "        [--username <username>]\n"
-        "        [--password <password>]\n"
-        "        [--password-file <file>]\n"
-        "        [--append-source-to-username]\n"
         "        [--enable-udprelay]\n"
         "        [--udprelay-max-connections <number>]\n"
         "        [--socks5-udp]\n"
@@ -650,10 +630,6 @@ int parse_arguments (int argc, char *argv[])
     options.netif_netmask = NULL;
     options.netif_ip6addr = NULL;
     options.socks_server_addr = NULL;
-    options.username = NULL;
-    options.password = NULL;
-    options.password_file = NULL;
-    options.append_source_to_username = 0;
     options.socks5_udp = 0;
 
     int i;
@@ -786,33 +762,6 @@ int parse_arguments (int argc, char *argv[])
             options.socks_server_addr = argv[i + 1];
             i++;
         }
-        else if (!strcmp(arg, "--username")) {
-            if (1 >= argc - i) {
-                fprintf(stderr, "%s: requires an argument\n", arg);
-                return 0;
-            }
-            options.username = argv[i + 1];
-            i++;
-        }
-        else if (!strcmp(arg, "--password")) {
-            if (1 >= argc - i) {
-                fprintf(stderr, "%s: requires an argument\n", arg);
-                return 0;
-            }
-            options.password = argv[i + 1];
-            i++;
-        }
-        else if (!strcmp(arg, "--password-file")) {
-            if (1 >= argc - i) {
-                fprintf(stderr, "%s: requires an argument\n", arg);
-                return 0;
-            }
-            options.password_file = argv[i + 1];
-            i++;
-        }
-        else if (!strcmp(arg, "--append-source-to-username")) {
-            options.append_source_to_username = 1;
-        }
         else if (!strcmp(arg, "--enable-udprelay")) {
             options.socks5_udp = 1;
         }
@@ -850,25 +799,11 @@ int parse_arguments (int argc, char *argv[])
         return 0;
     }
 
-    if (options.username) {
-        if (!options.password && !options.password_file) {
-            fprintf(stderr, "username given but password not given\n");
-            return 0;
-        }
-
-        if (options.password && options.password_file) {
-            fprintf(stderr, "--password and --password-file cannot both be given\n");
-            return 0;
-        }
-    }
-
     return 1;
 }
 
 int process_arguments (void)
 {
-    ASSERT(!password_file_contents)
-
     // resolve netif ipaddr
     if (!BIPAddr_Resolve(&netif_ipaddr, options.netif_ipaddr, 0)) {
         BLog(BLOG_ERROR, "netif ipaddr: BIPAddr_Resolve failed");
@@ -891,31 +826,6 @@ int process_arguments (void)
     if (!BAddr_Parse2(&socks_server_addr, options.socks_server_addr, NULL, 0, 0)) {
         BLog(BLOG_ERROR, "socks server addr: BAddr_Parse2 failed");
         return 0;
-    }
-
-    // add none socks authentication method
-    socks_auth_info[0] = BSocksClient_auth_none();
-    socks_num_auth_info = 1;
-
-    // add password socks authentication method
-    if (options.username) {
-        const char *password;
-        size_t password_len;
-        if (options.password) {
-            password = options.password;
-            password_len = strlen(options.password);
-        } else {
-            if (!read_file(options.password_file, &password_file_contents, &password_len)) {
-                BLog(BLOG_ERROR, "failed to read password file");
-                return 0;
-            }
-            password = (char *)password_file_contents;
-        }
-
-        socks_auth_info[socks_num_auth_info++] = BSocksClient_auth_password(
-            options.username, strlen(options.username),
-            password, password_len
-        );
     }
 
     return 1;
@@ -1393,7 +1303,6 @@ err_t listener_accept_func (void *arg, struct tcp_pcb *newpcb, err_t err)
         BLog(BLOG_ERROR, "listener accept: malloc failed");
         goto fail0;
     }
-    client->socks_username = NULL;
 
     SYNC_DECL
     SYNC_FROMHERE
@@ -1408,21 +1317,9 @@ err_t listener_accept_func (void *arg, struct tcp_pcb *newpcb, err_t err)
     ASSERT_FORCE(BAddr_Parse2(&addr, OVERRIDE_DEST_ADDR, NULL, 0, 1))
 #endif
 
-    // add source address to username if requested
-    if (options.username && options.append_source_to_username) {
-        char addr_str[BADDR_MAX_PRINT_LEN];
-        BAddr_Print(&client->remote_addr, addr_str);
-        client->socks_username = concat_strings(3, options.username, "@", addr_str);
-        if (!client->socks_username) {
-            goto fail1;
-        }
-        socks_auth_info[1].password.username = client->socks_username;
-        socks_auth_info[1].password.username_len = strlen(client->socks_username);
-    }
-
     // init SOCKS
     if (!BSocksClient_Init(&client->socks_client,
-        socks_server_addr, socks_auth_info, socks_num_auth_info, addr, /*udp=*/false,
+        socks_server_addr, addr, /*udp=*/false,
         (BSocksClient_handler)client_socks_handler, client, &ss))
     {
         BLog(BLOG_ERROR, "listener accept: BSocksClient_Init failed");
@@ -1474,7 +1371,6 @@ err_t listener_accept_func (void *arg, struct tcp_pcb *newpcb, err_t err)
 
 fail1:
     SYNC_BREAK
-    free(client->socks_username);
     free(client);
 fail0:
     return ERR_MEM;
@@ -1628,7 +1524,6 @@ void client_dealloc (struct tcp_client *client)
     }
 
     // free memory
-    free(client->socks_username);
     free(client);
 }
 

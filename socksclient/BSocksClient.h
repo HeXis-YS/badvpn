@@ -73,21 +73,7 @@
  */
 typedef void (*BSocksClient_handler) (void *user, int event);
 
-struct BSocksClient_auth_info {
-    int auth_type;
-    union {
-        struct {
-            const char *username;
-            size_t username_len;
-            const char *password;
-            size_t password_len;
-        } password;
-    };
-};
-
 typedef struct {
-    const struct BSocksClient_auth_info *auth_info;
-    size_t num_auth_info;
     BAddr dest_addr;
     bool udp;
     BAddr bind_addr;
@@ -113,9 +99,6 @@ typedef struct {
     DebugObject d_obj;
 } BSocksClient;
 
-struct BSocksClient_auth_info BSocksClient_auth_none (void);
-struct BSocksClient_auth_info BSocksClient_auth_password (const char *username, size_t username_len, const char *password, size_t password_len);
-
 /**
  * Initializes the object.
  * 
@@ -127,12 +110,6 @@ struct BSocksClient_auth_info BSocksClient_auth_password (const char *username, 
  * 
  * @param o the object
  * @param server_addr SOCKS5 server address
- * @param auth_info List of supported authentication methods and associated parameters.
- *        Initialize these using functions such as BSocksClient_auth_none() and
- *        BSocksClient_auth_password(). The pointer must remain valid while this object
- *        exists, the data is not copied.
- * @param num_auth_info Number of the above. There should be at least one, otherwise it
- *        certainly won't work.
  * @param dest_addr Address to send as DST.ADDR in the CONNECT or UDP ASSOCIATE request.
  *        It is also possible to specify it later from the BSOCKSCLIENT_EVENT_CONNECTED
  *        event callback using @ref BSocksClient_SetDestAddr; this is necessary for UDP
@@ -143,8 +120,7 @@ struct BSocksClient_auth_info BSocksClient_auth_password (const char *username, 
  * @param reactor reactor we live in
  * @return 1 on success, 0 on failure
  */
-int BSocksClient_Init (BSocksClient *o, BAddr server_addr,
-    const struct BSocksClient_auth_info *auth_info, size_t num_auth_info, BAddr dest_addr,
+int BSocksClient_Init (BSocksClient *o, BAddr server_addr, BAddr dest_addr,
     bool udp, BSocksClient_handler handler, void *user, BReactor *reactor) WARN_UNUSED;
 
 /**
